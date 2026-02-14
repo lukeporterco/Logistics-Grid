@@ -15,5 +15,9 @@
 Thumbs.db
 .DS_Store
 
-# RimWorld local data (if you ever copy it in)
+# RimWorld local data
 HugsLib/
+
+# Codex files
+AGENTS.md
+**/AGENTS.md
