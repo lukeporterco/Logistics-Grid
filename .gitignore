@@ -1,0 +1,19 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+
+# VS/VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Rider
+.idea/
+
+# OS junk
+Thumbs.db
+.DS_Store
+
+# RimWorld local data (if you ever copy it in)
+HugsLib/

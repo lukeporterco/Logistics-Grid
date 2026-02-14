@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Logistics Grid</name>
+  <author>Luke Porter</author>
+  <packageId>lukeporter.logisticsgrid</packageId>
+
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+    </li>
+  </modDependencies>
+
+  <loadAfter>
+    <li>brrainz.harmony</li>
+  </loadAfter>
+
+  <description>
+Adds an overlay for viewing colony utility infrastructure, including power and other logistical systems.
+
+*Inspired by Prison Architect’s Utilities tab.*
+  </description>
+</ModMetaData>
