@@ -10,16 +10,19 @@ namespace Logistics_Grid
         public const float DefaultTintStrength = 0.90f;
         public const bool DefaultFogTint = false;
         public const bool DefaultFadeWorldAndUi = false;
+        public const bool DefaultShowPowerConduitsOverlay = false;
 
         public float tintStrength = DefaultTintStrength;
         public bool useFogTint = DefaultFogTint;
         public bool fadeWorldAndUi = DefaultFadeWorldAndUi;
+        public bool showPowerConduitsOverlay = DefaultShowPowerConduitsOverlay;
 
         public override void ExposeData()
         {
             Scribe_Values.Look(ref tintStrength, "tintStrength", DefaultTintStrength);
             Scribe_Values.Look(ref useFogTint, "useFogTint", DefaultFogTint);
             Scribe_Values.Look(ref fadeWorldAndUi, "fadeWorldAndUi", DefaultFadeWorldAndUi);
+            Scribe_Values.Look(ref showPowerConduitsOverlay, "showPowerConduitsOverlay", DefaultShowPowerConduitsOverlay);
             ClampValues();
         }
 

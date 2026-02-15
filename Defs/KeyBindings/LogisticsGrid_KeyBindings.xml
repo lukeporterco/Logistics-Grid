@@ -4,6 +4,6 @@
     <defName>LogisticsGrid_ToggleUtilitiesView</defName>
     <label>toggle utilities view</label>
     <category>Game</category>
-    <defaultKeyCodeA>U</defaultKeyCodeA>
+    <defaultKeyCodeA>None</defaultKeyCodeA>
   </KeyBindingDef>
 </Defs>

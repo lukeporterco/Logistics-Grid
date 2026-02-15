@@ -28,10 +28,16 @@ namespace Logistics_Grid.Utilities
 
         public static bool ShouldDrawForCurrentMap()
         {
+            return ShouldDrawForMap(Find.CurrentMap);
+        }
+
+        public static bool ShouldDrawForMap(Map map)
+        {
             return Enabled
                 && Current.ProgramState == ProgramState.Playing
-                && Find.CurrentMap != null
-                && WorldRendererUtility.DrawingMap;
+                && map != null
+                && WorldRendererUtility.DrawingMap
+                && map == Find.CurrentMap;
         }
     }
 }

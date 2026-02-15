@@ -12,10 +12,12 @@ namespace Logistics_Grid.Utilities
         private static float tintStrength = LogisticsGridSettings.DefaultTintStrength;
         private static bool useFogTint;
         private static bool fadeWorldAndUi;
+        private static bool showPowerConduitsOverlay;
 
         public static Color TintColor => tintColor;
         public static float TintStrength => tintStrength;
         public static bool FadeWorldAndUi => fadeWorldAndUi;
+        public static bool ShowPowerConduitsOverlay => showPowerConduitsOverlay;
 
         public static void Initialize(LogisticsGridSettings sourceSettings)
         {
@@ -30,6 +32,7 @@ namespace Logistics_Grid.Utilities
                 tintStrength = LogisticsGridSettings.DefaultTintStrength;
                 useFogTint = LogisticsGridSettings.DefaultFogTint;
                 fadeWorldAndUi = LogisticsGridSettings.DefaultFadeWorldAndUi;
+                showPowerConduitsOverlay = LogisticsGridSettings.DefaultShowPowerConduitsOverlay;
             }
             else
             {
@@ -37,6 +40,7 @@ namespace Logistics_Grid.Utilities
                 tintStrength = settings.tintStrength;
                 useFogTint = settings.useFogTint;
                 fadeWorldAndUi = settings.fadeWorldAndUi;
+                showPowerConduitsOverlay = settings.showPowerConduitsOverlay;
             }
 
             Color baseColor = useFogTint ? FogBaseColor : DimBaseColor;

@@ -52,6 +52,14 @@ namespace Logistics_Grid
                 UtilitiesOverlaySettingsCache.Refresh();
             }
 
+            bool showPowerConduitsOverlay = settings.showPowerConduitsOverlay;
+            listing.CheckboxLabeled("Show power conduits overlay", ref showPowerConduitsOverlay, "Draws a minimal conduit-cell highlight from cached map data.");
+            if (showPowerConduitsOverlay != settings.showPowerConduitsOverlay)
+            {
+                settings.showPowerConduitsOverlay = showPowerConduitsOverlay;
+                UtilitiesOverlaySettingsCache.Refresh();
+            }
+
             listing.End();
         }
 

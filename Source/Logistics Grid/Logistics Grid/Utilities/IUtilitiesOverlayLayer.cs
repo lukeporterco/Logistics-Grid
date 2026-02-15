@@ -1,3 +1,4 @@
+using Logistics_Grid.Components;
 using Verse;
 
 namespace Logistics_Grid.Utilities
@@ -6,6 +7,6 @@ namespace Logistics_Grid.Utilities
     {
         int DrawOrder { get; }
 
-        void Draw(Map map);
+        void Draw(Map map, MapComponent_LogisticsGrid component);
     }
 }

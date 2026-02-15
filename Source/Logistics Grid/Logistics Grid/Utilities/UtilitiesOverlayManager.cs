@@ -6,27 +6,29 @@ namespace Logistics_Grid.Utilities
 {
     internal static class UtilitiesOverlayManager
     {
-        private static readonly List<IUtilitiesOverlayLayer> Layers = new List<IUtilitiesOverlayLayer>
+        private static readonly List<IUtilitiesOverlayLayer> UiLayers = new List<IUtilitiesOverlayLayer>
         {
-            new UtilitiesBaseFadeLayer()
+            new UtilitiesBaseFadeLayer(),
+            new UtilitiesPowerConduitsUiLayer()
         };
 
         static UtilitiesOverlayManager()
         {
-            Layers.Sort((left, right) => left.DrawOrder.CompareTo(right.DrawOrder));
+            UiLayers.Sort((left, right) => left.DrawOrder.CompareTo(right.DrawOrder));
         }
 
-        public static void Draw(Map map, MapComponent_LogisticsGrid component)
+        public static void DrawUi(Map map, MapComponent_LogisticsGrid component)
         {
-            if (map == null || component == null)
+            if (map == null || component == null || !UtilitiesViewController.ShouldDrawForMap(map))
             {
                 return;
             }
 
-            for (int i = 0; i < Layers.Count; i++)
+            for (int i = 0; i < UiLayers.Count; i++)
             {
-                Layers[i].Draw(map);
+                UiLayers[i].Draw(map, component);
             }
         }
+
     }
 }

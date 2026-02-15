@@ -67,11 +67,13 @@
     <Compile Include="LogisticsGridMod.cs" />
     <Compile Include="LogisticsGridSettings.cs" />
     <Compile Include="Patches\MapInterfacePatches.cs" />
+    <Compile Include="Patches\PowerOverlayInvalidationPatches.cs" />
     <Compile Include="Patches\UIRootPlayPatches.cs" />
     <Compile Include="Utilities\IUtilitiesOverlayLayer.cs" />
     <Compile Include="Utilities\UtilitiesBaseFadeLayer.cs" />
     <Compile Include="Utilities\UtilitiesOverlayManager.cs" />
     <Compile Include="Utilities\UtilitiesOverlaySettingsCache.cs" />
+    <Compile Include="Utilities\UtilitiesPowerConduitsUiLayer.cs" />
     <Compile Include="Utilities\UtilitiesViewController.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

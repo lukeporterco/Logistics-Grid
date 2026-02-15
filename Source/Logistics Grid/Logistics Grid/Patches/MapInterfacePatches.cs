@@ -19,7 +19,7 @@ namespace Logistics_Grid.Patches
 
             Map map = Find.CurrentMap;
             MapComponent_LogisticsGrid comp = map.GetComponent<MapComponent_LogisticsGrid>();
-            UtilitiesOverlayManager.Draw(map, comp);
+            UtilitiesOverlayManager.DrawUi(map, comp);
         }
     }
 
@@ -36,7 +36,7 @@ namespace Logistics_Grid.Patches
 
             Map map = Find.CurrentMap;
             MapComponent_LogisticsGrid comp = map.GetComponent<MapComponent_LogisticsGrid>();
-            UtilitiesOverlayManager.Draw(map, comp);
+            UtilitiesOverlayManager.DrawUi(map, comp);
         }
     }
 }
