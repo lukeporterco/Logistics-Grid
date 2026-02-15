@@ -133,11 +133,23 @@ namespace Logistics_Grid.Utilities
         private static bool ShouldDrawHub(byte neighborMask)
         {
             int neighborCount = PowerDomainCache.CountNeighbors(neighborMask);
-            // Minimize blend stacking at joins; only fill isolated/cross centers.
+            // Keep rounded corners while still avoiding T-junction hub overdraw.
             if (neighborCount == 0 || neighborCount == 4)
             {
                 return true;
             }
+
+            if (neighborCount == 2)
+            {
+                bool verticalStraight =
+                    (neighborMask & PowerDomainCache.NeighborNorth) != 0
+                    && (neighborMask & PowerDomainCache.NeighborSouth) != 0;
+                bool horizontalStraight =
+                    (neighborMask & PowerDomainCache.NeighborEast) != 0
+                    && (neighborMask & PowerDomainCache.NeighborWest) != 0;
+                return !verticalStraight && !horizontalStraight;
+            }
+
             return false;
         }
 

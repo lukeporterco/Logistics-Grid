@@ -96,12 +96,26 @@ namespace Logistics_Grid.Utilities
         private static bool ShouldDrawHub(byte neighborMask)
         {
             int neighborCount = PowerDomainCache.CountNeighbors(neighborMask);
-            // Keep hub fill only where it prevents obvious holes (isolated/cross),
-            // and avoid extra overdraw at corners/T-junctions.
+            // Keep hub fill where rounded shape is visually important,
+            // but avoid extra overdraw at T-junctions.
             if (neighborCount == 0 || neighborCount == 4)
             {
                 return true;
             }
+
+            if (neighborCount == 2)
+            {
+                bool verticalStraight =
+                    (neighborMask & PowerDomainCache.NeighborNorth) != 0
+                    && (neighborMask & PowerDomainCache.NeighborSouth) != 0;
+                bool horizontalStraight =
+                    (neighborMask & PowerDomainCache.NeighborEast) != 0
+                    && (neighborMask & PowerDomainCache.NeighborWest) != 0;
+
+                // Corners get a rounded hub; straight segments do not.
+                return !verticalStraight && !horizontalStraight;
+            }
+
             return false;
         }
 
