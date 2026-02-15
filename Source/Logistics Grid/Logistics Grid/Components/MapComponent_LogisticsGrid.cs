@@ -14,13 +14,16 @@ namespace Logistics_Grid.Components
         private List<Building> powerConduits = new List<Building>();
         private List<Building> powerUsers = new List<Building>();
         private List<IntVec3> powerConduitCells = new List<IntVec3>();
+        private List<IntVec3> powerUserCells = new List<IntVec3>();
         private List<Building> powerConduitsBack = new List<Building>();
         private List<Building> powerUsersBack = new List<Building>();
         private List<IntVec3> powerConduitCellsBack = new List<IntVec3>();
+        private List<IntVec3> powerUserCellsBack = new List<IntVec3>();
 
         public List<Building> PowerConduits => powerConduits;
         public List<IntVec3> PowerConduitCells => powerConduitCells;
         public List<Building> PowerUsers => powerUsers;
+        public List<IntVec3> PowerUserCells => powerUserCells;
         public int PowerConduitCount;
         public int PowerUserCount;
 
@@ -63,8 +66,10 @@ namespace Logistics_Grid.Components
             powerConduitsBack.Clear();
             powerConduitCellsBack.Clear();
             powerUsersBack.Clear();
+            powerUserCellsBack.Clear();
 
             List<Thing> allThings = map.listerThings.AllThings;
+            List<Thing> artificialBuildings = map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingArtificial);
             ThingDef conduitDef = ThingDefOf.PowerConduit;
             for (int i = 0; i < allThings.Count; i++)
             {
@@ -89,6 +94,20 @@ namespace Logistics_Grid.Components
                 }
             }
 
+            for (int i = 0; i < artificialBuildings.Count; i++)
+            {
+                Building building = artificialBuildings[i] as Building;
+                if (building == null || building.TryGetComp<CompPowerTrader>() == null)
+                {
+                    continue;
+                }
+
+                foreach (IntVec3 cell in building.OccupiedRect().Cells)
+                {
+                    powerUserCellsBack.Add(cell);
+                }
+            }
+
             List<Building> powerConduitsSwap = powerConduits;
             powerConduits = powerConduitsBack;
             powerConduitsBack = powerConduitsSwap;
@@ -100,6 +119,10 @@ namespace Logistics_Grid.Components
             List<Building> powerUsersSwap = powerUsers;
             powerUsers = powerUsersBack;
             powerUsersBack = powerUsersSwap;
+
+            List<IntVec3> powerUserCellsSwap = powerUserCells;
+            powerUserCells = powerUserCellsBack;
+            powerUserCellsBack = powerUserCellsSwap;
 
             PowerConduitCount = powerConduits.Count;
             PowerUserCount = powerUsers.Count;

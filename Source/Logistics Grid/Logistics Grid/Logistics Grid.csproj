@@ -73,7 +73,8 @@
     <Compile Include="Utilities\UtilitiesBaseFadeLayer.cs" />
     <Compile Include="Utilities\UtilitiesOverlayManager.cs" />
     <Compile Include="Utilities\UtilitiesOverlaySettingsCache.cs" />
-    <Compile Include="Utilities\UtilitiesPowerConduitsUiLayer.cs" />
+    <Compile Include="Utilities\UtilitiesPowerConduitsLayer.cs" />
+    <Compile Include="Utilities\UtilitiesPowerUsersLayer.cs" />
     <Compile Include="Utilities\UtilitiesViewController.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

@@ -16,7 +16,9 @@ namespace Logistics_Grid.Patches
             }
 
             ThingDef conduitDef = ThingDefOf.PowerConduit;
-            if ((conduitDef != null && def == conduitDef) || def.defName == "PowerConduit")
+            if ((def.building != null && def.building.isPowerConduit)
+                || (conduitDef != null && def == conduitDef)
+                || def.defName == "PowerConduit")
             {
                 return true;
             }

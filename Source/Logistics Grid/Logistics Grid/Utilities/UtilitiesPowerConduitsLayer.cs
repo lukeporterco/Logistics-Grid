@@ -5,7 +5,7 @@ using Verse;
 
 namespace Logistics_Grid.Utilities
 {
-    internal sealed class UtilitiesPowerConduitsUiLayer : IUtilitiesOverlayLayer
+    internal sealed class UtilitiesPowerConduitsLayer : IUtilitiesOverlayLayer
     {
         private static readonly Color ConduitHighlightColor = new Color(0.35f, 0.85f, 1f, 0.92f);
 

@@ -60,6 +60,14 @@ namespace Logistics_Grid
                 UtilitiesOverlaySettingsCache.Refresh();
             }
 
+            bool showPowerUsersOverlay = settings.showPowerUsersOverlay;
+            listing.CheckboxLabeled("Show power users overlay", ref showPowerUsersOverlay, "Draws occupied cells for CompPowerTrader buildings from cached map data.");
+            if (showPowerUsersOverlay != settings.showPowerUsersOverlay)
+            {
+                settings.showPowerUsersOverlay = showPowerUsersOverlay;
+                UtilitiesOverlaySettingsCache.Refresh();
+            }
+
             listing.End();
         }
 

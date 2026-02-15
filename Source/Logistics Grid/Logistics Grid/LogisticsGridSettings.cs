@@ -11,11 +11,13 @@ namespace Logistics_Grid
         public const bool DefaultFogTint = false;
         public const bool DefaultFadeWorldAndUi = false;
         public const bool DefaultShowPowerConduitsOverlay = false;
+        public const bool DefaultShowPowerUsersOverlay = false;
 
         public float tintStrength = DefaultTintStrength;
         public bool useFogTint = DefaultFogTint;
         public bool fadeWorldAndUi = DefaultFadeWorldAndUi;
         public bool showPowerConduitsOverlay = DefaultShowPowerConduitsOverlay;
+        public bool showPowerUsersOverlay = DefaultShowPowerUsersOverlay;
 
         public override void ExposeData()
         {
@@ -23,6 +25,7 @@ namespace Logistics_Grid
             Scribe_Values.Look(ref useFogTint, "useFogTint", DefaultFogTint);
             Scribe_Values.Look(ref fadeWorldAndUi, "fadeWorldAndUi", DefaultFadeWorldAndUi);
             Scribe_Values.Look(ref showPowerConduitsOverlay, "showPowerConduitsOverlay", DefaultShowPowerConduitsOverlay);
+            Scribe_Values.Look(ref showPowerUsersOverlay, "showPowerUsersOverlay", DefaultShowPowerUsersOverlay);
             ClampValues();
         }
 

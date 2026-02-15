@@ -9,7 +9,8 @@ namespace Logistics_Grid.Utilities
         private static readonly List<IUtilitiesOverlayLayer> UiLayers = new List<IUtilitiesOverlayLayer>
         {
             new UtilitiesBaseFadeLayer(),
-            new UtilitiesPowerConduitsUiLayer()
+            new UtilitiesPowerConduitsLayer(),
+            new UtilitiesPowerUsersLayer()
         };
 
         static UtilitiesOverlayManager()
@@ -29,6 +30,5 @@ namespace Logistics_Grid.Utilities
                 UiLayers[i].Draw(map, component);
             }
         }
-
     }
 }

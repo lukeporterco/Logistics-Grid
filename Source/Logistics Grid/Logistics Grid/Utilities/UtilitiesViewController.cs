@@ -36,8 +36,7 @@ namespace Logistics_Grid.Utilities
             return Enabled
                 && Current.ProgramState == ProgramState.Playing
                 && map != null
-                && WorldRendererUtility.DrawingMap
-                && map == Find.CurrentMap;
+                && WorldRendererUtility.DrawingMap;
         }
     }
 }
