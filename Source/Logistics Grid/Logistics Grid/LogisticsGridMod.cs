@@ -16,6 +16,10 @@ namespace Logistics_Grid
             settings.ClampValues();
             settings.EnsureChannelDefaults();
             UtilitiesOverlaySettingsCache.Initialize(settings);
+
+            // Mod settings can be loaded after constructor-time initialization.
+            // Refresh once loading completes so cached channel states match persisted values.
+            LongEventHandler.ExecuteWhenFinished(UtilitiesOverlaySettingsCache.Refresh);
         }
 
         public override string SettingsCategory()

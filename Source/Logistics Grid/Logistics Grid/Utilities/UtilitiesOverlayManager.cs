@@ -26,6 +26,9 @@ namespace Logistics_Grid.Utilities
             lastDrawFrame = frame;
             lastDrawMapIndex = map.Index;
 
+            // Keep overlays responsive while paused by rebuilding dirty domain caches on draw.
+            component.EnsureCachesCurrentForDraw();
+
             UtilityOverlayProfiler.BeginFrame(map);
             UtilityOverlayContext context = new UtilityOverlayContext(map, component);
             System.Collections.Generic.IReadOnlyList<UtilityOverlayChannelDef> channels = UtilityOverlayRegistry.GetChannelsInDrawOrder();

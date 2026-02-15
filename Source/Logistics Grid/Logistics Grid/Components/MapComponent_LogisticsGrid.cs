@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using Logistics_Grid.Framework;
+using UnityEngine;
 using Verse;
 
 namespace Logistics_Grid.Components
@@ -9,12 +10,14 @@ namespace Logistics_Grid.Components
     internal sealed class MapComponent_LogisticsGrid : MapComponent
     {
         private const int ProofLogIntervalTicks = 300;
+        private const int PausedRebuildIntervalFrames = 20;
 
         private sealed class DomainRuntimeState
         {
             public IUtilityDomainProvider Provider;
             public IUtilityDomainCache Cache;
             public int LastRebuildTick = -1;
+            public int LastRebuildFrame = -1;
             public float LastRebuildMilliseconds;
         }
 
@@ -45,21 +48,13 @@ namespace Logistics_Grid.Components
             for (int i = 0; i < domainStates.Count; i++)
             {
                 DomainRuntimeState state = domainStates[i];
-                bool shouldRebuild = state.Cache.Dirty
-                    || state.LastRebuildTick < 0
-                    || ticksGame - state.LastRebuildTick >= state.Provider.RebuildIntervalTicks;
+                bool shouldRebuild = ShouldRebuildForTick(state, ticksGame);
                 if (!shouldRebuild)
                 {
                     continue;
                 }
 
-                Stopwatch stopwatch = Stopwatch.StartNew();
-                state.Provider.Rebuild(map, state.Cache);
-                stopwatch.Stop();
-
-                state.LastRebuildMilliseconds = (float)stopwatch.Elapsed.TotalMilliseconds;
-                state.LastRebuildTick = ticksGame;
-                state.Cache.Dirty = false;
+                RebuildDomainState(state, ticksGame);
             }
 
             if (Prefs.DevMode && ticksGame - lastProofLogTick >= ProofLogIntervalTicks)
@@ -131,6 +126,32 @@ namespace Logistics_Grid.Components
             return state.Cache as TDomainCache;
         }
 
+        public void EnsureCachesCurrentForDraw()
+        {
+            EnsureInitialized();
+
+            TickManager tickManager = Find.TickManager;
+            int ticksGame = Find.TickManager != null ? Find.TickManager.TicksGame : 0;
+            bool paused = tickManager != null && tickManager.Paused;
+            int currentFrame = Time.frameCount;
+            for (int i = 0; i < domainStates.Count; i++)
+            {
+                DomainRuntimeState state = domainStates[i];
+                bool shouldRebuild = paused
+                    ? state.Cache.Dirty
+                        || state.LastRebuildTick < 0
+                        || currentFrame - state.LastRebuildFrame >= PausedRebuildIntervalFrames
+                    : state.Cache.Dirty;
+
+                if (!shouldRebuild)
+                {
+                    continue;
+                }
+
+                RebuildDomainState(state, ticksGame);
+            }
+        }
+
         private void EnsureInitialized()
         {
             if (initialized)
@@ -165,6 +186,25 @@ namespace Logistics_Grid.Components
             {
                 domainStates[i].Cache.Dirty = true;
             }
+        }
+
+        private void RebuildDomainState(DomainRuntimeState state, int ticksGame)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            state.Provider.Rebuild(map, state.Cache);
+            stopwatch.Stop();
+
+            state.LastRebuildMilliseconds = (float)stopwatch.Elapsed.TotalMilliseconds;
+            state.LastRebuildTick = ticksGame;
+            state.LastRebuildFrame = Time.frameCount;
+            state.Cache.Dirty = false;
+        }
+
+        private static bool ShouldRebuildForTick(DomainRuntimeState state, int ticksGame)
+        {
+            return state.Cache.Dirty
+                || state.LastRebuildTick < 0
+                || ticksGame - state.LastRebuildTick >= state.Provider.RebuildIntervalTicks;
         }
 
         private void LogProfileSnapshot(int ticksGame)

@@ -27,3 +27,7 @@ CODEXNOTES.md
 #RimwWorld game folders
 RimWorld/
 RimWorldManaged/
+
+##gitignore
+.gitignore
+**/.gitignore
