@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Logistics_Grid.Components;
 using Verse;
 
 namespace Logistics_Grid.Utilities
@@ -15,9 +16,9 @@ namespace Logistics_Grid.Utilities
             Layers.Sort((left, right) => left.DrawOrder.CompareTo(right.DrawOrder));
         }
 
-        public static void Draw(Map map)
+        public static void Draw(Map map, MapComponent_LogisticsGrid component)
         {
-            if (map == null)
+            if (map == null || component == null)
             {
                 return;
             }

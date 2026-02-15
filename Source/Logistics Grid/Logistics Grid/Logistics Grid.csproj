@@ -61,6 +61,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Components\MapComponent_LogisticsGrid.cs" />
     <Compile Include="LogisticsGridBootstrap.cs" />
     <Compile Include="LogisticsGridKeyBindingDefOf.cs" />
     <Compile Include="LogisticsGridMod.cs" />

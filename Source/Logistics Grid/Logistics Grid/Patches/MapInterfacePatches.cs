@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Logistics_Grid.Components;
 using RimWorld;
 using Verse;
 using Logistics_Grid.Utilities;
@@ -16,7 +17,9 @@ namespace Logistics_Grid.Patches
                 return;
             }
 
-            UtilitiesOverlayManager.Draw(Find.CurrentMap);
+            Map map = Find.CurrentMap;
+            MapComponent_LogisticsGrid comp = map.GetComponent<MapComponent_LogisticsGrid>();
+            UtilitiesOverlayManager.Draw(map, comp);
         }
     }
 
@@ -31,7 +34,9 @@ namespace Logistics_Grid.Patches
                 return;
             }
 
-            UtilitiesOverlayManager.Draw(Find.CurrentMap);
+            Map map = Find.CurrentMap;
+            MapComponent_LogisticsGrid comp = map.GetComponent<MapComponent_LogisticsGrid>();
+            UtilitiesOverlayManager.Draw(map, comp);
         }
     }
 }
