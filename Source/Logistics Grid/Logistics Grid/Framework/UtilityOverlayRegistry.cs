@@ -31,6 +31,7 @@ namespace Logistics_Grid.Framework
             RegisterDomainProvider(new PowerDomainProvider());
             RegisterLayerFactory("LogisticsGrid.Layer.WorldDim", () => new UtilitiesWorldDimLayer());
             RegisterLayerFactory("LogisticsGrid.Layer.PowerConduits", () => new UtilitiesPowerConduitsLayer());
+            RegisterLayerFactory("LogisticsGrid.Layer.PowerNets", () => new UtilitiesPowerNetsLayer());
             RegisterLayerFactory("LogisticsGrid.Layer.PowerUsers", () => new UtilitiesPowerUsersLayer());
 
             RefreshChannelCache();

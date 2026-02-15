@@ -54,6 +54,7 @@ namespace Logistics_Grid.Domains.Power
             }
 
             powerCache.RebuildNeighborMasks();
+            powerCache.RebuildNetGroups();
             powerCache.FinalizeRebuild();
         }
     }

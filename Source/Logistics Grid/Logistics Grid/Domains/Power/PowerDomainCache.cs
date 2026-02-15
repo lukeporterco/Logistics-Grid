@@ -24,6 +24,9 @@ namespace Logistics_Grid.Domains.Power
         private bool[] conduitPresenceGrid = new bool[0];
         private byte[] conduitTypeGrid = new byte[0];
         private byte[] conduitNeighborMaskGrid = new byte[0];
+        private int[] conduitNetIdGrid = new int[0];
+        private readonly List<PowerNetOverlayGroup> netGroups = new List<PowerNetOverlayGroup>();
+        private readonly Queue<IntVec3> floodQueue = new Queue<IntVec3>(128);
 
         public PowerDomainCache(Map map)
         {
@@ -40,9 +43,11 @@ namespace Logistics_Grid.Domains.Power
 
         public int PowerConduitCount { get; private set; }
         public int PowerUserCount { get; private set; }
+        public int NetGroupCount => netGroups.Count;
 
         public List<IntVec3> PowerConduitCells => powerConduitCells;
         public List<IntVec3> PowerUserCells => powerUserCells;
+        public IReadOnlyList<PowerNetOverlayGroup> NetGroups => netGroups;
 
         public void PrepareForRebuild()
         {
@@ -138,6 +143,35 @@ namespace Logistics_Grid.Domains.Power
             }
         }
 
+        public void RebuildNetGroups()
+        {
+            netGroups.Clear();
+
+            for (int i = 0; i < powerConduitCellsBack.Count; i++)
+            {
+                IntVec3 cell = powerConduitCellsBack[i];
+                if (!cell.InBounds(map))
+                {
+                    continue;
+                }
+
+                if (GetNetIdAt(cell) >= 0)
+                {
+                    continue;
+                }
+
+                int netId = netGroups.Count;
+                int colorSeed;
+                int cellCount = FloodFillNet(cell, netId, out colorSeed);
+                if (cellCount <= 0)
+                {
+                    continue;
+                }
+
+                netGroups.Add(new PowerNetOverlayGroup(netId, cell, cellCount, colorSeed));
+            }
+        }
+
         public bool HasConduitAt(IntVec3 cell)
         {
             if (!cell.InBounds(map))
@@ -183,6 +217,27 @@ namespace Logistics_Grid.Domains.Power
             return conduitNeighborMaskGrid[cellIndex];
         }
 
+        public int GetNetIdAt(IntVec3 cell)
+        {
+            int cellIndex;
+            if (!TryGetCellIndex(cell, out cellIndex))
+            {
+                return -1;
+            }
+
+            return conduitNetIdGrid[cellIndex];
+        }
+
+        public int GetNetColorSeed(int netId)
+        {
+            if (netId < 0 || netId >= netGroups.Count)
+            {
+                return 0;
+            }
+
+            return netGroups[netId].ColorSeed;
+        }
+
         public static int CountNeighbors(byte neighborMask)
         {
             int neighborCount = 0;
@@ -201,6 +256,12 @@ namespace Logistics_Grid.Domains.Power
                 conduitPresenceGrid = new bool[cellCount];
                 conduitTypeGrid = new byte[cellCount];
                 conduitNeighborMaskGrid = new byte[cellCount];
+                conduitNetIdGrid = new int[cellCount];
+
+                for (int i = 0; i < conduitNetIdGrid.Length; i++)
+                {
+                    conduitNetIdGrid[i] = -1;
+                }
             }
         }
 
@@ -218,6 +279,7 @@ namespace Logistics_Grid.Domains.Power
                 conduitPresenceGrid[cellIndex] = false;
                 conduitTypeGrid[cellIndex] = (byte)PowerConduitType.None;
                 conduitNeighborMaskGrid[cellIndex] = 0;
+                conduitNetIdGrid[cellIndex] = -1;
             }
         }
 
@@ -246,6 +308,72 @@ namespace Logistics_Grid.Domains.Power
             {
                 conduitNeighborMaskGrid[cellIndex] = neighborMask;
             }
+        }
+
+        private int FloodFillNet(IntVec3 startCell, int netId, out int colorSeed)
+        {
+            colorSeed = 0;
+            int startCellIndex;
+            if (!TryGetCellIndex(startCell, out startCellIndex) || !conduitPresenceGrid[startCellIndex])
+            {
+                return 0;
+            }
+
+            floodQueue.Clear();
+            conduitNetIdGrid[startCellIndex] = netId;
+            floodQueue.Enqueue(startCell);
+            int minCellIndex = startCellIndex;
+
+            int cellCount = 0;
+            while (floodQueue.Count > 0)
+            {
+                IntVec3 cell = floodQueue.Dequeue();
+                cellCount++;
+
+                int cellIndex;
+                if (TryGetCellIndex(cell, out cellIndex) && cellIndex < minCellIndex)
+                {
+                    minCellIndex = cellIndex;
+                }
+
+                TryVisitNeighbor(cell + IntVec3.North, netId);
+                TryVisitNeighbor(cell + IntVec3.South, netId);
+                TryVisitNeighbor(cell + IntVec3.East, netId);
+                TryVisitNeighbor(cell + IntVec3.West, netId);
+            }
+
+            colorSeed = minCellIndex;
+            return cellCount;
+        }
+
+        private void TryVisitNeighbor(IntVec3 cell, int netId)
+        {
+            int cellIndex;
+            if (!TryGetCellIndex(cell, out cellIndex)
+                || !conduitPresenceGrid[cellIndex]
+                || conduitNetIdGrid[cellIndex] >= 0)
+            {
+                return;
+            }
+
+            conduitNetIdGrid[cellIndex] = netId;
+            floodQueue.Enqueue(cell);
+        }
+
+        private bool TryGetCellIndex(IntVec3 cell, out int cellIndex)
+        {
+            cellIndex = -1;
+            if (!cell.InBounds(map))
+            {
+                return false;
+            }
+
+            cellIndex = map.cellIndices.CellToIndex(cell);
+            return cellIndex >= 0
+                && cellIndex < conduitPresenceGrid.Length
+                && cellIndex < conduitTypeGrid.Length
+                && cellIndex < conduitNeighborMaskGrid.Length
+                && cellIndex < conduitNetIdGrid.Length;
         }
     }
 }

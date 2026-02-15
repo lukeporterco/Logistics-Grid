@@ -65,6 +65,7 @@
     <Compile Include="Domains\Power\PowerConduitType.cs" />
     <Compile Include="Domains\Power\PowerDomainCache.cs" />
     <Compile Include="Domains\Power\PowerDomainProvider.cs" />
+    <Compile Include="Domains\Power\PowerNetOverlayGroup.cs" />
     <Compile Include="Framework\DefModExtension_UtilityOverlay.cs" />
     <Compile Include="Framework\IUtilityDomainCache.cs" />
     <Compile Include="Framework\IUtilityDomainProvider.cs" />
@@ -82,9 +83,11 @@
     <Compile Include="Patches\PowerOverlayInvalidationPatches.cs" />
     <Compile Include="Patches\UIRootPlayPatches.cs" />
     <Compile Include="Utilities\IUtilitiesOverlayLayer.cs" />
+    <Compile Include="Utilities\CapsuleStrokeRenderer.cs" />
     <Compile Include="Utilities\UtilitiesOverlayManager.cs" />
     <Compile Include="Utilities\UtilitiesOverlaySettingsCache.cs" />
     <Compile Include="Utilities\UtilitiesPowerConduitsLayer.cs" />
+    <Compile Include="Utilities\UtilitiesPowerNetsLayer.cs" />
     <Compile Include="Utilities\UtilitiesPowerUsersLayer.cs" />
     <Compile Include="Utilities\UtilitiesViewController.cs" />
     <Compile Include="Utilities\UtilitiesWorldDimLayer.cs" />

@@ -22,6 +22,17 @@
   </Logistics_Grid.Framework.UtilityOverlayChannelDef>
 
   <Logistics_Grid.Framework.UtilityOverlayChannelDef>
+    <defName>LogisticsGrid_Channel_PowerNets</defName>
+    <label>show power nets</label>
+    <description>Color conduit cells by connected network grouping.</description>
+    <domainId>power</domainId>
+    <layerId>LogisticsGrid.Layer.PowerNets</layerId>
+    <defaultEnabled>false</defaultEnabled>
+    <showInSettings>true</showInSettings>
+    <drawOrder>95</drawOrder>
+  </Logistics_Grid.Framework.UtilityOverlayChannelDef>
+
+  <Logistics_Grid.Framework.UtilityOverlayChannelDef>
     <defName>LogisticsGrid_Channel_PowerUsers</defName>
     <label>show power users</label>
     <description>Draw occupied cells for CompPowerTrader buildings above the utilities dim.</description>
