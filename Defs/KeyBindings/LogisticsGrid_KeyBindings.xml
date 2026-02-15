@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <KeyBindingDef>
+    <defName>LogisticsGrid_ToggleUtilitiesView</defName>
+    <label>toggle utilities view</label>
+    <category>Game</category>
+    <defaultKeyCodeA>U</defaultKeyCodeA>
+  </KeyBindingDef>
+</Defs>
