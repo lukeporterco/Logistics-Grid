@@ -1,5 +1,6 @@
 using UnityEngine;
 using Verse;
+using Logistics_Grid.Framework;
 using Logistics_Grid.Utilities;
 
 namespace Logistics_Grid
@@ -10,8 +11,10 @@ namespace Logistics_Grid
 
         public LogisticsGridMod(ModContentPack content) : base(content)
         {
+            UtilityOverlayRegistry.Initialize();
             settings = GetSettings<LogisticsGridSettings>();
             settings.ClampValues();
+            settings.EnsureChannelDefaults();
             UtilitiesOverlaySettingsCache.Initialize(settings);
         }
 
@@ -39,19 +42,31 @@ namespace Logistics_Grid
 
             listing.GapLine();
 
-            bool showPowerConduits = settings.showPowerConduitsOverlay;
-            listing.CheckboxLabeled("Show power conduits", ref showPowerConduits, "Draw vanilla conduit visuals and connected path segments above the utilities dim.");
-            if (showPowerConduits != settings.showPowerConduitsOverlay)
+            bool settingsChanged = false;
+            System.Collections.Generic.IReadOnlyList<UtilityOverlayChannelDef> channels = UtilityOverlayRegistry.GetChannelsInDrawOrder();
+            for (int i = 0; i < channels.Count; i++)
             {
-                settings.showPowerConduitsOverlay = showPowerConduits;
-                UtilitiesOverlaySettingsCache.Refresh();
+                UtilityOverlayChannelDef channelDef = channels[i];
+                if (channelDef == null || !channelDef.showInSettings)
+                {
+                    continue;
+                }
+
+                bool isEnabled = settings.GetChannelEnabled(channelDef.defName, channelDef.defaultEnabled);
+                bool newIsEnabled = isEnabled;
+                string channelLabel = !string.IsNullOrEmpty(channelDef.label)
+                    ? channelDef.LabelCap.ToString()
+                    : channelDef.defName;
+                listing.CheckboxLabeled(channelLabel, ref newIsEnabled, channelDef.description);
+                if (newIsEnabled != isEnabled)
+                {
+                    settings.SetChannelEnabled(channelDef.defName, newIsEnabled);
+                    settingsChanged = true;
+                }
             }
 
-            bool showPowerUsers = settings.showPowerUsersOverlay;
-            listing.CheckboxLabeled("Show power users", ref showPowerUsers, "Draw occupied cells for CompPowerTrader buildings above the utilities dim.");
-            if (showPowerUsers != settings.showPowerUsersOverlay)
+            if (settingsChanged)
             {
-                settings.showPowerUsersOverlay = showPowerUsers;
                 UtilitiesOverlaySettingsCache.Refresh();
             }
 

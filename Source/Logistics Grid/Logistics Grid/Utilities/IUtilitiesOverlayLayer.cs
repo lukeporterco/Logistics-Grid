@@ -1,12 +1,12 @@
-using Logistics_Grid.Components;
+using Logistics_Grid.Framework;
 using Verse;
 
 namespace Logistics_Grid.Utilities
 {
     internal interface IUtilitiesOverlayLayer
     {
-        int DrawOrder { get; }
+        string LayerId { get; }
 
-        void Draw(Map map, MapComponent_LogisticsGrid component);
+        void Draw(UtilityOverlayContext context, UtilityOverlayChannelDef channelDef);
     }
 }

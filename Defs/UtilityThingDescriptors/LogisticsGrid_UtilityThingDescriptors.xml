@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <Logistics_Grid.Framework.UtilityThingDescriptorDef>
+    <defName>LogisticsGrid_Descriptor_PowerConduit_Standard</defName>
+    <targetDefName>PowerConduit</targetDefName>
+    <domainId>power</domainId>
+    <powerOverlayRelevant>true</powerOverlayRelevant>
+    <powerConduit>true</powerConduit>
+    <powerConduitType>Standard</powerConduitType>
+  </Logistics_Grid.Framework.UtilityThingDescriptorDef>
+
+  <Logistics_Grid.Framework.UtilityThingDescriptorDef>
+    <defName>LogisticsGrid_Descriptor_PowerConduit_Hidden</defName>
+    <targetDefName>HiddenConduit</targetDefName>
+    <domainId>power</domainId>
+    <powerOverlayRelevant>true</powerOverlayRelevant>
+    <powerConduit>true</powerConduit>
+    <powerConduitType>Hidden</powerConduitType>
+  </Logistics_Grid.Framework.UtilityThingDescriptorDef>
+
+  <Logistics_Grid.Framework.UtilityThingDescriptorDef>
+    <defName>LogisticsGrid_Descriptor_PowerConduit_Waterproof</defName>
+    <targetDefName>WaterproofConduit</targetDefName>
+    <domainId>power</domainId>
+    <powerOverlayRelevant>true</powerOverlayRelevant>
+    <powerConduit>true</powerConduit>
+    <powerConduitType>Waterproof</powerConduitType>
+  </Logistics_Grid.Framework.UtilityThingDescriptorDef>
+</Defs>

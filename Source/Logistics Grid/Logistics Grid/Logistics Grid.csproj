@@ -62,6 +62,18 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Components\MapComponent_LogisticsGrid.cs" />
+    <Compile Include="Domains\Power\PowerConduitType.cs" />
+    <Compile Include="Domains\Power\PowerDomainCache.cs" />
+    <Compile Include="Domains\Power\PowerDomainProvider.cs" />
+    <Compile Include="Framework\DefModExtension_UtilityOverlay.cs" />
+    <Compile Include="Framework\IUtilityDomainCache.cs" />
+    <Compile Include="Framework\IUtilityDomainProvider.cs" />
+    <Compile Include="Framework\UtilityOverlayChannelDef.cs" />
+    <Compile Include="Framework\UtilityOverlayContext.cs" />
+    <Compile Include="Framework\UtilityOverlayProfiler.cs" />
+    <Compile Include="Framework\UtilityOverlayRegistry.cs" />
+    <Compile Include="Framework\UtilityThingClassifier.cs" />
+    <Compile Include="Framework\UtilityThingDescriptorDef.cs" />
     <Compile Include="LogisticsGridBootstrap.cs" />
     <Compile Include="LogisticsGridKeyBindingDefOf.cs" />
     <Compile Include="LogisticsGridMod.cs" />

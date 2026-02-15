@@ -1,5 +1,5 @@
-using System.Collections.Generic;
 using Logistics_Grid.Components;
+using Logistics_Grid.Framework;
 using UnityEngine;
 using Verse;
 
@@ -7,21 +7,8 @@ namespace Logistics_Grid.Utilities
 {
     internal static class UtilitiesOverlayManager
     {
-        private static readonly List<IUtilitiesOverlayLayer> WorldLayers = new List<IUtilitiesOverlayLayer>
-        {
-            // dim first, wires second: dim the world, then redraw utility visuals above it so they stay bright.
-            new UtilitiesWorldDimLayer(),
-            new UtilitiesPowerConduitsLayer(),
-            new UtilitiesPowerUsersLayer()
-        };
-
         private static int lastDrawFrame = -1;
         private static int lastDrawMapIndex = -1;
-
-        static UtilitiesOverlayManager()
-        {
-            WorldLayers.Sort((left, right) => left.DrawOrder.CompareTo(right.DrawOrder));
-        }
 
         public static void DrawWorld(Map map, MapComponent_LogisticsGrid component)
         {
@@ -39,9 +26,29 @@ namespace Logistics_Grid.Utilities
             lastDrawFrame = frame;
             lastDrawMapIndex = map.Index;
 
-            for (int i = 0; i < WorldLayers.Count; i++)
+            UtilityOverlayProfiler.BeginFrame(map);
+            UtilityOverlayContext context = new UtilityOverlayContext(map, component);
+            System.Collections.Generic.IReadOnlyList<UtilityOverlayChannelDef> channels = UtilityOverlayRegistry.GetChannelsInDrawOrder();
+            for (int i = 0; i < channels.Count; i++)
             {
-                WorldLayers[i].Draw(map, component);
+                UtilityOverlayChannelDef channelDef = channels[i];
+                if (!UtilitiesOverlaySettingsCache.IsChannelEnabled(channelDef))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(channelDef.domainId) && !component.HasDomainCache(channelDef.domainId))
+                {
+                    continue;
+                }
+
+                IUtilitiesOverlayLayer layer;
+                if (!UtilityOverlayRegistry.TryGetLayerForChannel(channelDef, out layer))
+                {
+                    continue;
+                }
+
+                layer.Draw(context, channelDef);
             }
         }
     }

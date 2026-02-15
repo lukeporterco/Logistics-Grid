@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <Logistics_Grid.Framework.UtilityOverlayChannelDef>
+    <defName>LogisticsGrid_Channel_WorldDim</defName>
+    <label>world dim</label>
+    <description>Draw a world-space dim plane behind utility overlays.</description>
+    <layerId>LogisticsGrid.Layer.WorldDim</layerId>
+    <defaultEnabled>true</defaultEnabled>
+    <showInSettings>false</showInSettings>
+    <drawOrder>0</drawOrder>
+  </Logistics_Grid.Framework.UtilityOverlayChannelDef>
+
+  <Logistics_Grid.Framework.UtilityOverlayChannelDef>
+    <defName>LogisticsGrid_Channel_PowerConduits</defName>
+    <label>show power conduits</label>
+    <description>Draw connected conduit path segments above the utilities dim.</description>
+    <domainId>power</domainId>
+    <layerId>LogisticsGrid.Layer.PowerConduits</layerId>
+    <defaultEnabled>false</defaultEnabled>
+    <showInSettings>true</showInSettings>
+    <drawOrder>100</drawOrder>
+  </Logistics_Grid.Framework.UtilityOverlayChannelDef>
+
+  <Logistics_Grid.Framework.UtilityOverlayChannelDef>
+    <defName>LogisticsGrid_Channel_PowerUsers</defName>
+    <label>show power users</label>
+    <description>Draw occupied cells for CompPowerTrader buildings above the utilities dim.</description>
+    <domainId>power</domainId>
+    <layerId>LogisticsGrid.Layer.PowerUsers</layerId>
+    <defaultEnabled>false</defaultEnabled>
+    <showInSettings>true</showInSettings>
+    <drawOrder>110</drawOrder>
+  </Logistics_Grid.Framework.UtilityOverlayChannelDef>
+</Defs>

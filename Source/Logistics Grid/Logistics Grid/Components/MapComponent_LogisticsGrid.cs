@@ -1,44 +1,29 @@
 using System.Collections.Generic;
-using RimWorld;
+using System.Diagnostics;
+using System.Text;
+using Logistics_Grid.Framework;
 using Verse;
 
 namespace Logistics_Grid.Components
 {
     internal sealed class MapComponent_LogisticsGrid : MapComponent
     {
-        public enum ConduitType : byte
+        private const int ProofLogIntervalTicks = 300;
+
+        private sealed class DomainRuntimeState
         {
-            None = 0,
-            Standard = 1,
-            Hidden = 2,
-            Waterproof = 3
+            public IUtilityDomainProvider Provider;
+            public IUtilityDomainCache Cache;
+            public int LastRebuildTick = -1;
+            public float LastRebuildMilliseconds;
         }
 
-        private const int PeriodicRebuildIntervalTicks = 250;
-        private const int ProofLogIntervalTicks = 300;
-        private const string WaterproofConduitDefName = "WaterproofConduit";
+        private readonly Dictionary<string, DomainRuntimeState> domainStatesById =
+            new Dictionary<string, DomainRuntimeState>(System.StringComparer.OrdinalIgnoreCase);
 
-        public bool Dirty = true;
+        private readonly List<DomainRuntimeState> domainStates = new List<DomainRuntimeState>();
 
-        private List<Building> powerConduits = new List<Building>();
-        private List<Building> powerUsers = new List<Building>();
-        private List<IntVec3> powerConduitCells = new List<IntVec3>();
-        private List<IntVec3> powerUserCells = new List<IntVec3>();
-        private List<Building> powerConduitsBack = new List<Building>();
-        private List<Building> powerUsersBack = new List<Building>();
-        private List<IntVec3> powerConduitCellsBack = new List<IntVec3>();
-        private List<IntVec3> powerUserCellsBack = new List<IntVec3>();
-        private bool[] conduitPresenceGrid = new bool[0];
-        private byte[] conduitTypeGrid = new byte[0];
-
-        public List<Building> PowerConduits => powerConduits;
-        public List<IntVec3> PowerConduitCells => powerConduitCells;
-        public List<Building> PowerUsers => powerUsers;
-        public List<IntVec3> PowerUserCells => powerUserCells;
-        public int PowerConduitCount;
-        public int PowerUserCount;
-
-        private int lastRebuildTick = -1;
+        private bool initialized;
         private int lastProofLogTick = -1;
 
         public MapComponent_LogisticsGrid(Map map) : base(map)
@@ -48,208 +33,174 @@ namespace Logistics_Grid.Components
         public override void FinalizeInit()
         {
             base.FinalizeInit();
-            Dirty = true;
+            EnsureInitialized();
+            MarkAllDirty();
         }
 
         public override void MapComponentTick()
         {
+            EnsureInitialized();
+
             int ticksGame = Find.TickManager.TicksGame;
-            if (Dirty || lastRebuildTick < 0 || ticksGame - lastRebuildTick >= PeriodicRebuildIntervalTicks)
+            for (int i = 0; i < domainStates.Count; i++)
             {
-                RebuildCaches();
-                lastRebuildTick = ticksGame;
+                DomainRuntimeState state = domainStates[i];
+                bool shouldRebuild = state.Cache.Dirty
+                    || state.LastRebuildTick < 0
+                    || ticksGame - state.LastRebuildTick >= state.Provider.RebuildIntervalTicks;
+                if (!shouldRebuild)
+                {
+                    continue;
+                }
+
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                state.Provider.Rebuild(map, state.Cache);
+                stopwatch.Stop();
+
+                state.LastRebuildMilliseconds = (float)stopwatch.Elapsed.TotalMilliseconds;
+                state.LastRebuildTick = ticksGame;
+                state.Cache.Dirty = false;
             }
 
             if (Prefs.DevMode && ticksGame - lastProofLogTick >= ProofLogIntervalTicks)
             {
-                Log.Message($"[Logistics Grid] Power cache proof: map={map.Index} conduits={PowerConduitCount} users={PowerUserCount} dirty={Dirty}");
+                LogProfileSnapshot(ticksGame);
                 lastProofLogTick = ticksGame;
             }
         }
 
-        public void MarkDirty()
+        public void MarkDirtyForThing(Thing thing)
         {
-            Dirty = true;
-        }
-
-        public void RebuildCaches()
-        {
-            powerConduitsBack.Clear();
-            powerConduitCellsBack.Clear();
-            powerUsersBack.Clear();
-            powerUserCellsBack.Clear();
-            EnsureConduitPresenceGridSize();
-            ClearConduitPresenceGrid();
-            EnsureConduitTypeGridSize();
-            ClearConduitTypeGrid();
-
-            List<Thing> allThings = map.listerThings.AllThings;
-            List<Thing> artificialBuildings = map.listerThings.ThingsInGroup(ThingRequestGroup.BuildingArtificial);
-            ThingDef conduitDef = ThingDefOf.PowerConduit;
-            ThingDef hiddenConduitDef = ThingDefOf.HiddenConduit;
-            for (int i = 0; i < allThings.Count; i++)
+            EnsureInitialized();
+            if (thing == null)
             {
-                Building building = allThings[i] as Building;
-                if (building == null)
-                {
-                    continue;
-                }
-
-                ThingDef buildingDef = building.def;
-                bool isStandardConduit = conduitDef != null && buildingDef == conduitDef;
-                bool isHiddenConduit = hiddenConduitDef != null && buildingDef == hiddenConduitDef;
-                bool isWaterproofConduit = buildingDef != null && buildingDef.defName == WaterproofConduitDefName;
-                bool isConduit = (buildingDef.building != null && buildingDef.building.isPowerConduit)
-                    || isStandardConduit
-                    || isHiddenConduit
-                    || isWaterproofConduit
-                    || buildingDef.defName == "PowerConduit";
-                if (isConduit)
-                {
-                    powerConduitsBack.Add(building);
-                    powerConduitCellsBack.Add(building.Position);
-                    SetConduitPresence(building.Position);
-                    SetConduitType(building.Position, ResolveConduitType(isStandardConduit, isHiddenConduit, isWaterproofConduit));
-                }
-
-                if (building.TryGetComp<CompPowerTrader>() != null)
-                {
-                    powerUsersBack.Add(building);
-                }
+                return;
             }
 
-            for (int i = 0; i < artificialBuildings.Count; i++)
+            for (int i = 0; i < domainStates.Count; i++)
             {
-                Building building = artificialBuildings[i] as Building;
-                if (building == null || building.TryGetComp<CompPowerTrader>() == null)
+                DomainRuntimeState state = domainStates[i];
+                if (state.Provider.IsThingRelevantForInvalidation(thing))
                 {
-                    continue;
-                }
-
-                foreach (IntVec3 cell in building.OccupiedRect().Cells)
-                {
-                    powerUserCellsBack.Add(cell);
+                    state.Cache.Dirty = true;
                 }
             }
-
-            List<Building> powerConduitsSwap = powerConduits;
-            powerConduits = powerConduitsBack;
-            powerConduitsBack = powerConduitsSwap;
-
-            List<IntVec3> powerConduitCellsSwap = powerConduitCells;
-            powerConduitCells = powerConduitCellsBack;
-            powerConduitCellsBack = powerConduitCellsSwap;
-
-            List<Building> powerUsersSwap = powerUsers;
-            powerUsers = powerUsersBack;
-            powerUsersBack = powerUsersSwap;
-
-            List<IntVec3> powerUserCellsSwap = powerUserCells;
-            powerUserCells = powerUserCellsBack;
-            powerUserCellsBack = powerUserCellsSwap;
-
-            PowerConduitCount = powerConduits.Count;
-            PowerUserCount = powerUsers.Count;
-            Dirty = false;
         }
 
-        public bool HasConduitAt(IntVec3 cell)
+        public void MarkDomainDirty(string domainId)
         {
-            if (!cell.InBounds(map))
+            EnsureInitialized();
+            if (string.IsNullOrEmpty(domainId))
+            {
+                return;
+            }
+
+            DomainRuntimeState state;
+            if (domainStatesById.TryGetValue(domainId, out state))
+            {
+                state.Cache.Dirty = true;
+            }
+        }
+
+        public bool HasDomainCache(string domainId)
+        {
+            EnsureInitialized();
+            if (string.IsNullOrEmpty(domainId))
             {
                 return false;
             }
 
-            int cellIndex = map.cellIndices.CellToIndex(cell);
-            return cellIndex >= 0 && cellIndex < conduitPresenceGrid.Length && conduitPresenceGrid[cellIndex];
+            return domainStatesById.ContainsKey(domainId);
         }
 
-        public ConduitType GetConduitTypeAt(IntVec3 cell)
+        public TDomainCache GetDomainCache<TDomainCache>(string domainId)
+            where TDomainCache : class, IUtilityDomainCache
         {
-            if (!cell.InBounds(map))
+            EnsureInitialized();
+            if (string.IsNullOrEmpty(domainId))
             {
-                return ConduitType.None;
+                return null;
             }
 
-            int cellIndex = map.cellIndices.CellToIndex(cell);
-            if (cellIndex < 0 || cellIndex >= conduitTypeGrid.Length)
+            DomainRuntimeState state;
+            if (!domainStatesById.TryGetValue(domainId, out state))
             {
-                return ConduitType.None;
+                return null;
             }
 
-            return (ConduitType)conduitTypeGrid[cellIndex];
+            return state.Cache as TDomainCache;
         }
 
-        private void EnsureConduitPresenceGridSize()
+        private void EnsureInitialized()
         {
-            int cellCount = map.cellIndices.NumGridCells;
-            if (conduitPresenceGrid.Length != cellCount)
+            if (initialized)
             {
-                conduitPresenceGrid = new bool[cellCount];
+                return;
             }
+
+            UtilityOverlayRegistry.Initialize();
+            foreach (IUtilityDomainProvider provider in UtilityOverlayRegistry.GetDomainProviders())
+            {
+                if (provider == null || string.IsNullOrEmpty(provider.DomainId))
+                {
+                    continue;
+                }
+
+                DomainRuntimeState state = new DomainRuntimeState
+                {
+                    Provider = provider,
+                    Cache = provider.CreateCache(map)
+                };
+
+                domainStates.Add(state);
+                domainStatesById[provider.DomainId] = state;
+            }
+
+            initialized = true;
         }
 
-        private void EnsureConduitTypeGridSize()
+        private void MarkAllDirty()
         {
-            int cellCount = map.cellIndices.NumGridCells;
-            if (conduitTypeGrid.Length != cellCount)
+            for (int i = 0; i < domainStates.Count; i++)
             {
-                conduitTypeGrid = new byte[cellCount];
-            }
-        }
-
-        private void ClearConduitPresenceGrid()
-        {
-            for (int i = 0; i < conduitPresenceGrid.Length; i++)
-            {
-                conduitPresenceGrid[i] = false;
-            }
-        }
-
-        private void ClearConduitTypeGrid()
-        {
-            for (int i = 0; i < conduitTypeGrid.Length; i++)
-            {
-                conduitTypeGrid[i] = (byte)ConduitType.None;
-            }
-        }
-
-        private void SetConduitPresence(IntVec3 cell)
-        {
-            int cellIndex = map.cellIndices.CellToIndex(cell);
-            if (cellIndex >= 0 && cellIndex < conduitPresenceGrid.Length)
-            {
-                conduitPresenceGrid[cellIndex] = true;
+                domainStates[i].Cache.Dirty = true;
             }
         }
 
-        private void SetConduitType(IntVec3 cell, ConduitType conduitType)
+        private void LogProfileSnapshot(int ticksGame)
         {
-            int cellIndex = map.cellIndices.CellToIndex(cell);
-            if (cellIndex >= 0 && cellIndex < conduitTypeGrid.Length)
-            {
-                conduitTypeGrid[cellIndex] = (byte)conduitType;
-            }
-        }
+            StringBuilder builder = new StringBuilder();
+            builder.Append("[Logistics Grid] Overlay profile: ");
+            builder.Append("map=");
+            builder.Append(map.Index);
+            builder.Append(" ticks=");
+            builder.Append(ticksGame);
+            builder.Append(" drawSubmissions=");
+            builder.Append(UtilityOverlayProfiler.GetCurrentFrameDrawSubmissions(map));
+            builder.Append(" drawMeshes=");
+            builder.Append(UtilityOverlayProfiler.GetCurrentFrameDrawMeshes(map));
 
-        private static ConduitType ResolveConduitType(bool isStandardConduit, bool isHiddenConduit, bool isWaterproofConduit)
-        {
-            if (isHiddenConduit)
+            for (int i = 0; i < domainStates.Count; i++)
             {
-                return ConduitType.Hidden;
+                DomainRuntimeState state = domainStates[i];
+                builder.Append(" | ");
+                builder.Append(state.Provider.DomainId);
+                builder.Append(":");
+                builder.Append(" dirty=");
+                builder.Append(state.Cache.Dirty ? "1" : "0");
+                builder.Append(" rebuildMs=");
+                builder.Append(state.LastRebuildMilliseconds.ToString("0.00"));
+                builder.Append(" ");
+                builder.Append(state.Cache.PrimaryLabel);
+                builder.Append("=");
+                builder.Append(state.Cache.PrimaryCount);
+                builder.Append(" ");
+                builder.Append(state.Cache.SecondaryLabel);
+                builder.Append("=");
+                builder.Append(state.Cache.SecondaryCount);
             }
 
-            if (isWaterproofConduit)
-            {
-                return ConduitType.Waterproof;
-            }
-
-            if (isStandardConduit)
-            {
-                return ConduitType.Standard;
-            }
-
-            return ConduitType.Standard;
+            Log.Message(builder.ToString());
         }
     }
 }

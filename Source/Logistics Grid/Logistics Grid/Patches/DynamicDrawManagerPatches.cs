@@ -15,13 +15,13 @@ namespace Logistics_Grid.Patches
         [HarmonyPostfix]
         private static void Postfix(DynamicDrawManager __instance)
         {
-            if (!UtilitiesViewController.Enabled || !WorldRendererUtility.DrawingMap)
+            if (!WorldRendererUtility.DrawingMap)
             {
                 return;
             }
 
             Map renderedMap = Find.CurrentMap;
-            if (renderedMap == null)
+            if (!UtilitiesViewController.ShouldDrawForMap(renderedMap))
             {
                 return;
             }

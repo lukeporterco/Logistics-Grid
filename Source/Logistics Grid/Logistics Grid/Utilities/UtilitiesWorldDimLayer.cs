@@ -1,4 +1,4 @@
-using Logistics_Grid.Components;
+using Logistics_Grid.Framework;
 using UnityEngine;
 using Verse;
 
@@ -9,26 +9,19 @@ namespace Logistics_Grid.Utilities
         private const float DimMarginCells = 2f;
         private static readonly float DimAltitude = Altitudes.AltitudeFor(AltitudeLayer.MapDataOverlay);
 
-        public int DrawOrder => 0;
+        public string LayerId => "LogisticsGrid.Layer.WorldDim";
 
-        public void Draw(Map map, MapComponent_LogisticsGrid component)
+        public void Draw(UtilityOverlayContext context, UtilityOverlayChannelDef channelDef)
         {
-            _ = map;
-            _ = component;
+            _ = channelDef;
 
-            if (!UtilitiesOverlaySettingsCache.ShouldDrawWorldDim)
+            if (Prefs.DevMode && UtilitiesOverlaySettingsCache.DebugDisableWorldDim)
             {
                 return;
             }
 
-            CameraDriver cameraDriver = Find.CameraDriver;
-            if (cameraDriver == null)
-            {
-                return;
-            }
-
-            CellRect viewRect = cameraDriver.CurrentViewRect;
-            if (viewRect.IsEmpty)
+            CellRect viewRect = context.ViewRect;
+            if (!context.HasViewRect || viewRect.IsEmpty)
             {
                 return;
             }
@@ -38,10 +31,15 @@ namespace Logistics_Grid.Utilities
 
             float width = viewRect.Width + DimMarginCells;
             float depth = viewRect.Height + DimMarginCells;
-            Color dimColor = new Color(0f, 0f, 0f, UtilitiesOverlaySettingsCache.WorldDimAlpha);
-            Material dimMaterial = SolidColorMaterials.SimpleSolidColorMaterial(dimColor, false);
+            Material material = GetDimMaterial(UtilitiesOverlaySettingsCache.WorldDimAlpha);
             Matrix4x4 matrix = Matrix4x4.TRS(center, Quaternion.identity, new Vector3(width, 1f, depth));
-            Graphics.DrawMesh(MeshPool.plane10, matrix, dimMaterial, 0);
+            Graphics.DrawMesh(MeshPool.plane10, matrix, material, 0);
+            UtilityOverlayProfiler.RecordDrawSubmission(context.Map, 1);
+        }
+
+        private static Material GetDimMaterial(float alpha)
+        {
+            return SolidColorMaterials.SimpleSolidColorMaterial(new Color(0f, 0f, 0f, alpha), false);
         }
     }
 }
