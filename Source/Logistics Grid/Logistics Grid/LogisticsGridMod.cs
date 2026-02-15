@@ -25,46 +25,33 @@ namespace Logistics_Grid
             Listing_Standard listing = new Listing_Standard();
             listing.Begin(inRect);
 
-            float visiblePercent = (1f - settings.tintStrength) * 100f;
-            listing.Label($"Tint strength ({visiblePercent:F0}% world visibility)");
-            float newTintStrength = listing.Slider(settings.tintStrength, LogisticsGridSettings.MinTintStrength, LogisticsGridSettings.MaxTintStrength);
-            if (!Mathf.Approximately(newTintStrength, settings.tintStrength))
+            listing.Label("Utilities Overlay");
+            listing.Gap(4f);
+
+            listing.Label($"World dim strength: {settings.worldDimAlpha:0.00}");
+            float newWorldDimAlpha = listing.Slider(settings.worldDimAlpha, LogisticsGridSettings.MinWorldDimAlpha, LogisticsGridSettings.MaxWorldDimAlpha);
+            if (!Mathf.Approximately(newWorldDimAlpha, settings.worldDimAlpha))
             {
-                settings.tintStrength = newTintStrength;
+                settings.worldDimAlpha = newWorldDimAlpha;
+                settings.ClampValues();
                 UtilitiesOverlaySettingsCache.Refresh();
             }
 
             listing.GapLine();
 
-            bool useFogTint = settings.useFogTint;
-            listing.CheckboxLabeled("Fog tint (off = dim tint)", ref useFogTint, "Switch between neutral dimming and a fog-like tint.");
-            if (useFogTint != settings.useFogTint)
+            bool showPowerConduits = settings.showPowerConduitsOverlay;
+            listing.CheckboxLabeled("Show power conduits", ref showPowerConduits, "Draw vanilla conduit visuals and connected path segments above the utilities dim.");
+            if (showPowerConduits != settings.showPowerConduitsOverlay)
             {
-                settings.useFogTint = useFogTint;
+                settings.showPowerConduitsOverlay = showPowerConduits;
                 UtilitiesOverlaySettingsCache.Refresh();
             }
 
-            bool fadeWorldAndUi = settings.fadeWorldAndUi;
-            listing.CheckboxLabeled("Fade world + UI (off = world only)", ref fadeWorldAndUi, "When enabled, overlay tint is drawn after main tabs to include UI.");
-            if (fadeWorldAndUi != settings.fadeWorldAndUi)
+            bool showPowerUsers = settings.showPowerUsersOverlay;
+            listing.CheckboxLabeled("Show power users", ref showPowerUsers, "Draw occupied cells for CompPowerTrader buildings above the utilities dim.");
+            if (showPowerUsers != settings.showPowerUsersOverlay)
             {
-                settings.fadeWorldAndUi = fadeWorldAndUi;
-                UtilitiesOverlaySettingsCache.Refresh();
-            }
-
-            bool showPowerConduitsOverlay = settings.showPowerConduitsOverlay;
-            listing.CheckboxLabeled("Show power conduits overlay", ref showPowerConduitsOverlay, "Draws a minimal conduit-cell highlight from cached map data.");
-            if (showPowerConduitsOverlay != settings.showPowerConduitsOverlay)
-            {
-                settings.showPowerConduitsOverlay = showPowerConduitsOverlay;
-                UtilitiesOverlaySettingsCache.Refresh();
-            }
-
-            bool showPowerUsersOverlay = settings.showPowerUsersOverlay;
-            listing.CheckboxLabeled("Show power users overlay", ref showPowerUsersOverlay, "Draws occupied cells for CompPowerTrader buildings from cached map data.");
-            if (showPowerUsersOverlay != settings.showPowerUsersOverlay)
-            {
-                settings.showPowerUsersOverlay = showPowerUsersOverlay;
+                settings.showPowerUsersOverlay = showPowerUsers;
                 UtilitiesOverlaySettingsCache.Refresh();
             }
 

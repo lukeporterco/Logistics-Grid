@@ -5,9 +5,18 @@ using Verse;
 
 namespace Logistics_Grid.Utilities
 {
+    [StaticConstructorOnStartup]
     internal sealed class UtilitiesPowerUsersLayer : IUtilitiesOverlayLayer
     {
-        private static readonly Color PowerUsersHighlightColor = new Color(1f, 0.82f, 0.35f, 0.72f);
+        private static readonly Color PowerUsersHighlightColor = new Color(1f, 0.82f, 0.35f, 0.78f);
+        private static readonly Material PowerUsersMaterial;
+        private static readonly Vector3 MarkerScale = new Vector3(0.32f, 1f, 0.32f);
+        private static readonly float MarkerAltitude = Altitudes.AltitudeFor(AltitudeLayer.MetaOverlays) + 0.0025f;
+
+        static UtilitiesPowerUsersLayer()
+        {
+            PowerUsersMaterial = SolidColorMaterials.SimpleSolidColorMaterial(PowerUsersHighlightColor, false);
+        }
 
         public int DrawOrder => 110;
 
@@ -25,14 +34,13 @@ namespace Logistics_Grid.Utilities
                 return;
             }
 
-            float cellSize = Find.CameraDriver.CellSizePixels;
-            float markerSize = Mathf.Max(2f, cellSize * 0.36f);
-            float halfMarkerSize = markerSize * 0.5f;
             for (int i = 0; i < powerUserCells.Count; i++)
             {
-                Vector2 screenPos = GenMapUI.LabelDrawPosFor(powerUserCells[i]);
-                Rect markerRect = new Rect(screenPos.x - halfMarkerSize, screenPos.y - halfMarkerSize, markerSize, markerSize);
-                Widgets.DrawBoxSolid(markerRect, PowerUsersHighlightColor);
+                Vector3 center = powerUserCells[i].ToVector3Shifted();
+                center.y = MarkerAltitude;
+
+                Matrix4x4 matrix = Matrix4x4.TRS(center, Quaternion.identity, MarkerScale);
+                Graphics.DrawMesh(MeshPool.plane10, matrix, PowerUsersMaterial, 0);
             }
         }
     }
