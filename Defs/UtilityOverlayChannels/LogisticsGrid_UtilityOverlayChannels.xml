@@ -2,8 +2,8 @@
 <Defs>
   <Logistics_Grid.Framework.UtilityOverlayChannelDef>
     <defName>LogisticsGrid_Channel_WorldDim</defName>
-    <label>world dim</label>
-    <description>Draw a world-space dim plane behind utility overlays.</description>
+    <label>schematic background</label>
+    <description>Draw a grey schematic background with grid and wall wireframe behind utility overlays.</description>
     <layerId>LogisticsGrid.Layer.WorldDim</layerId>
     <defaultEnabled>true</defaultEnabled>
     <showInSettings>false</showInSettings>

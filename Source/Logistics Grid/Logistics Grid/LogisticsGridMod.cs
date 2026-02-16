@@ -35,15 +35,6 @@ namespace Logistics_Grid
             listing.Label("Utilities Overlay");
             listing.Gap(4f);
 
-            listing.Label($"World dim strength: {settings.worldDimAlpha:0.00}");
-            float newWorldDimAlpha = listing.Slider(settings.worldDimAlpha, LogisticsGridSettings.MinWorldDimAlpha, LogisticsGridSettings.MaxWorldDimAlpha);
-            if (!Mathf.Approximately(newWorldDimAlpha, settings.worldDimAlpha))
-            {
-                settings.worldDimAlpha = newWorldDimAlpha;
-                settings.ClampValues();
-                UtilitiesOverlaySettingsCache.Refresh();
-            }
-
             listing.GapLine();
 
             bool settingsChanged = false;

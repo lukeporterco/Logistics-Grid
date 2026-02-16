@@ -66,6 +66,7 @@
     <Compile Include="Domains\Power\PowerDomainCache.cs" />
     <Compile Include="Domains\Power\PowerDomainProvider.cs" />
     <Compile Include="Domains\Power\PowerNetOverlayGroup.cs" />
+    <Compile Include="Domains\Power\PowerNetOverlayState.cs" />
     <Compile Include="Framework\DefModExtension_UtilityOverlay.cs" />
     <Compile Include="Framework\IUtilityDomainCache.cs" />
     <Compile Include="Framework\IUtilityDomainProvider.cs" />

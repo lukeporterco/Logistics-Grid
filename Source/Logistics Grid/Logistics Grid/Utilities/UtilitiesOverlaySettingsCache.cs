@@ -7,13 +7,10 @@ namespace Logistics_Grid.Utilities
     internal static class UtilitiesOverlaySettingsCache
     {
         private static LogisticsGridSettings settings;
-        private static float worldDimAlpha = LogisticsGridSettings.DefaultWorldDimAlpha;
         private static readonly Dictionary<string, bool> channelEnabledByDefName =
             new Dictionary<string, bool>(System.StringComparer.Ordinal);
 
         internal static bool DebugDisableWorldDim = false;
-
-        public static float WorldDimAlpha => worldDimAlpha;
 
         public static void Initialize(LogisticsGridSettings sourceSettings)
         {
@@ -28,13 +25,11 @@ namespace Logistics_Grid.Utilities
 
             if (settings == null)
             {
-                worldDimAlpha = LogisticsGridSettings.DefaultWorldDimAlpha;
             }
             else
             {
                 settings.ClampValues();
                 settings.EnsureChannelDefaults();
-                worldDimAlpha = settings.worldDimAlpha;
             }
 
             IReadOnlyList<UtilityOverlayChannelDef> channels = UtilityOverlayRegistry.GetChannelsInDrawOrder();

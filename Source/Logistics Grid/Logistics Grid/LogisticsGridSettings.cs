@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Logistics_Grid.Framework;
-using UnityEngine;
 using Verse;
 
 namespace Logistics_Grid
@@ -10,13 +9,9 @@ namespace Logistics_Grid
         private const string PowerConduitsChannelDefName = "LogisticsGrid_Channel_PowerConduits";
         private const string PowerUsersChannelDefName = "LogisticsGrid_Channel_PowerUsers";
 
-        public const float MinWorldDimAlpha = 0.20f;
-        public const float MaxWorldDimAlpha = 0.80f;
-        public const float DefaultWorldDimAlpha = 0.45f;
         public const bool DefaultShowPowerConduitsOverlay = false; // legacy migration value
         public const bool DefaultShowPowerUsersOverlay = false; // legacy migration value
 
-        public float worldDimAlpha = DefaultWorldDimAlpha;
         public Dictionary<string, bool> channelEnabledByDefName =
             new Dictionary<string, bool>(System.StringComparer.Ordinal);
 
@@ -27,7 +22,6 @@ namespace Logistics_Grid
 
         public override void ExposeData()
         {
-            Scribe_Values.Look(ref worldDimAlpha, "worldDimAlpha", DefaultWorldDimAlpha);
             Scribe_Collections.Look(
                 ref channelEnabledByDefName,
                 "channelEnabledByDefName",
@@ -56,7 +50,6 @@ namespace Logistics_Grid
 
         public void ClampValues()
         {
-            worldDimAlpha = Mathf.Clamp(worldDimAlpha, MinWorldDimAlpha, MaxWorldDimAlpha);
         }
 
         public void EnsureChannelDefaults()

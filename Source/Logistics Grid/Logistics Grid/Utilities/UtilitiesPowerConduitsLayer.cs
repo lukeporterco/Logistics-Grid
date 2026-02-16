@@ -7,13 +7,17 @@ namespace Logistics_Grid.Utilities
 {
     internal sealed class UtilitiesPowerConduitsLayer : IUtilitiesOverlayLayer
     {
-        private const int BucketStandard = 0;
-        private const int BucketHidden = 1;
-        private const int BucketWaterproof = 2;
+        private const int BucketPowered = 0;
+        private const int BucketTransient = 1;
+        private const int BucketFlickedOff = 2;
+        private const int BucketUnpowered = 3;
+        private const int BucketUnlinked = 4;
 
-        private static readonly Color StandardConduitPathColor = new Color(0.26f, 0.90f, 0.30f, 1f);
-        private static readonly Color HiddenConduitPathColor = new Color(0.58f, 0.98f, 0.54f, 1f);
-        private static readonly Color WaterproofConduitPathColor = new Color(0.10f, 0.60f, 0.16f, 1f);
+        private static readonly Color PoweredStatePathColor = new Color(0.20f, 0.95f, 0.20f, 1f);
+        private static readonly Color TransientStatePathColor = new Color(1f, 0.90f, 0.12f, 1f);
+        private static readonly Color FlickedOffStatePathColor = new Color(1f, 1f, 1f, 1f);
+        private static readonly Color UnpoweredStatePathColor = new Color(0.96f, 0.25f, 0.22f, 1f);
+        private static readonly Color UnlinkedStatePathColor = new Color(1.00f, 0.58f, 0.14f, 1f);
 
         private static readonly CapsuleStrokeStyle ConduitCapsuleStyle = new CapsuleStrokeStyle(
             strokeWidth: 0.24f,
@@ -21,7 +25,7 @@ namespace Logistics_Grid.Utilities
             alpha: 1f,
             capSegments: 8);
 
-        private static readonly CapsuleStrokeRenderer StrokeRenderer = new CapsuleStrokeRenderer(3, ConduitCapsuleStyle);
+        private static readonly CapsuleStrokeRenderer StrokeRenderer = new CapsuleStrokeRenderer(5, ConduitCapsuleStyle);
 
         public string LayerId => "LogisticsGrid.Layer.PowerConduits";
 
@@ -57,8 +61,8 @@ namespace Logistics_Grid.Utilities
                 }
 
                 Vector3 center = cell.ToVector3Shifted();
-                PowerConduitType conduitType = powerCache.GetConduitTypeAt(cell);
-                int bucket = GetBucketForConduitType(conduitType);
+                int netId = powerCache.GetNetIdAt(cell);
+                int bucket = GetBucketForNetState(powerCache.GetNetState(netId));
                 byte neighborMask = powerCache.GetNeighborMaskAt(cell);
                 int neighborCount = PowerDomainCache.CountNeighbors(neighborMask);
 
@@ -119,16 +123,20 @@ namespace Logistics_Grid.Utilities
             return false;
         }
 
-        private static int GetBucketForConduitType(PowerConduitType conduitType)
+        private static int GetBucketForNetState(PowerNetOverlayState netState)
         {
-            switch (conduitType)
+            switch (netState)
             {
-                case PowerConduitType.Hidden:
-                    return BucketHidden;
-                case PowerConduitType.Waterproof:
-                    return BucketWaterproof;
+                case PowerNetOverlayState.Transient:
+                    return BucketTransient;
+                case PowerNetOverlayState.FlickedOff:
+                    return BucketFlickedOff;
+                case PowerNetOverlayState.Unpowered:
+                    return BucketUnpowered;
+                case PowerNetOverlayState.Unlinked:
+                    return BucketUnlinked;
                 default:
-                    return BucketStandard;
+                    return BucketPowered;
             }
         }
 
@@ -136,12 +144,16 @@ namespace Logistics_Grid.Utilities
         {
             switch (bucket)
             {
-                case BucketHidden:
-                    return SolidColorMaterials.SimpleSolidColorMaterial(StrokeRenderer.ApplyAlpha(HiddenConduitPathColor), false);
-                case BucketWaterproof:
-                    return SolidColorMaterials.SimpleSolidColorMaterial(StrokeRenderer.ApplyAlpha(WaterproofConduitPathColor), false);
+                case BucketTransient:
+                    return SolidColorMaterials.SimpleSolidColorMaterial(StrokeRenderer.ApplyAlpha(TransientStatePathColor), false);
+                case BucketFlickedOff:
+                    return SolidColorMaterials.SimpleSolidColorMaterial(StrokeRenderer.ApplyAlpha(FlickedOffStatePathColor), false);
+                case BucketUnpowered:
+                    return SolidColorMaterials.SimpleSolidColorMaterial(StrokeRenderer.ApplyAlpha(UnpoweredStatePathColor), false);
+                case BucketUnlinked:
+                    return SolidColorMaterials.SimpleSolidColorMaterial(StrokeRenderer.ApplyAlpha(UnlinkedStatePathColor), false);
                 default:
-                    return SolidColorMaterials.SimpleSolidColorMaterial(StrokeRenderer.ApplyAlpha(StandardConduitPathColor), false);
+                    return SolidColorMaterials.SimpleSolidColorMaterial(StrokeRenderer.ApplyAlpha(PoweredStatePathColor), false);
             }
         }
     }

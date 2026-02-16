@@ -26,6 +26,7 @@ namespace Logistics_Grid.Domains.Power
         private byte[] conduitNeighborMaskGrid = new byte[0];
         private int[] conduitNetIdGrid = new int[0];
         private readonly List<PowerNetOverlayGroup> netGroups = new List<PowerNetOverlayGroup>();
+        private PowerNetOverlayState[] netStateById = new PowerNetOverlayState[0];
         private readonly Queue<IntVec3> floodQueue = new Queue<IntVec3>(128);
 
         public PowerDomainCache(Map map)
@@ -168,7 +169,13 @@ namespace Logistics_Grid.Domains.Power
                     continue;
                 }
 
-                netGroups.Add(new PowerNetOverlayGroup(netId, cell, cellCount, colorSeed));
+                netGroups.Add(new PowerNetOverlayGroup(netId, cell, cellCount, colorSeed, PowerNetOverlayState.Powered));
+            }
+
+            EnsureNetStateSize(netGroups.Count);
+            for (int i = 0; i < netStateById.Length; i++)
+            {
+                netStateById[i] = PowerNetOverlayState.Powered;
             }
         }
 
@@ -236,6 +243,30 @@ namespace Logistics_Grid.Domains.Power
             }
 
             return netGroups[netId].ColorSeed;
+        }
+
+        public void SetNetState(int netId, PowerNetOverlayState state)
+        {
+            if (netId < 0 || netId >= netStateById.Length)
+            {
+                return;
+            }
+
+            netStateById[netId] = state;
+            if (netId < netGroups.Count)
+            {
+                netGroups[netId].State = state;
+            }
+        }
+
+        public PowerNetOverlayState GetNetState(int netId)
+        {
+            if (netId < 0 || netId >= netStateById.Length)
+            {
+                return PowerNetOverlayState.Powered;
+            }
+
+            return netStateById[netId];
         }
 
         public static int CountNeighbors(byte neighborMask)
@@ -374,6 +405,14 @@ namespace Logistics_Grid.Domains.Power
                 && cellIndex < conduitTypeGrid.Length
                 && cellIndex < conduitNeighborMaskGrid.Length
                 && cellIndex < conduitNetIdGrid.Length;
+        }
+
+        private void EnsureNetStateSize(int netCount)
+        {
+            if (netStateById.Length != netCount)
+            {
+                netStateById = new PowerNetOverlayState[netCount];
+            }
         }
     }
 }

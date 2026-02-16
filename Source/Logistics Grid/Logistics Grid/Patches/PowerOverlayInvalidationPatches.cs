@@ -5,6 +5,14 @@ using Verse;
 
 namespace Logistics_Grid.Patches
 {
+    internal static class PowerOverlayInvalidationSignals
+    {
+        public const string PowerTurnedOn = "PowerTurnedOn";
+        public const string PowerTurnedOff = "PowerTurnedOff";
+        public const string FlickedOn = "FlickedOn";
+        public const string FlickedOff = "FlickedOff";
+    }
+
     [HarmonyPatch(typeof(Building), nameof(Building.SpawnSetup))]
     internal static class BuildingSpawnSetupPowerOverlayInvalidationPatch
     {
@@ -61,6 +69,31 @@ namespace Logistics_Grid.Patches
         }
     }
 
+    [HarmonyPatch(typeof(CompPowerTrader), nameof(CompPowerTrader.PowerOn), MethodType.Setter)]
+    internal static class CompPowerTraderPowerOnSetterPowerOverlayInvalidationPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(CompPowerTrader __instance)
+        {
+            PowerOverlayInvalidationUtility.MarkDirtyForCompParent(__instance, null);
+        }
+    }
+
+    [HarmonyPatch(typeof(CompPowerTrader), nameof(CompPowerTrader.ReceiveCompSignal))]
+    internal static class CompPowerTraderReceiveCompSignalPowerOverlayInvalidationPatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(CompPowerTrader __instance, string signal)
+        {
+            if (!PowerOverlayInvalidationUtility.IsRelevantPowerSignal(signal))
+            {
+                return;
+            }
+
+            PowerOverlayInvalidationUtility.MarkDirtyForCompParent(__instance, null);
+        }
+    }
+
     internal static class PowerOverlayInvalidationUtility
     {
         public static void MarkDirtyForCompParent(CompPower compPower, Map fallbackMap)
@@ -84,6 +117,19 @@ namespace Logistics_Grid.Patches
             }
 
             map.GetComponent<MapComponent_LogisticsGrid>()?.MarkDirtyForThing(parent);
+        }
+
+        public static bool IsRelevantPowerSignal(string signal)
+        {
+            if (string.IsNullOrEmpty(signal))
+            {
+                return false;
+            }
+
+            return signal.Equals(PowerOverlayInvalidationSignals.PowerTurnedOn, System.StringComparison.Ordinal)
+                || signal.Equals(PowerOverlayInvalidationSignals.PowerTurnedOff, System.StringComparison.Ordinal)
+                || signal.Equals(PowerOverlayInvalidationSignals.FlickedOn, System.StringComparison.Ordinal)
+                || signal.Equals(PowerOverlayInvalidationSignals.FlickedOff, System.StringComparison.Ordinal);
         }
     }
 }
