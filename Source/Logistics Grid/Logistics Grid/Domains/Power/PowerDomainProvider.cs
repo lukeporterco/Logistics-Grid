@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Logistics_Grid.Framework;
 using RimWorld;
+using UnityEngine;
 using Verse;
 
 namespace Logistics_Grid.Domains.Power
@@ -9,10 +10,11 @@ namespace Logistics_Grid.Domains.Power
     {
         private struct NetStateAccumulator
         {
-            public bool HasUnpoweredConsumer;
-            public bool HasFlickedOffConsumer;
-            public bool HasConsumer;
-            public bool HasProducer;
+            public bool IsConnected;
+            public bool HasActivePowerSource;
+            public bool HasEnabledConsumerDemand;
+            public bool HasMetConsumerDemand;
+            public bool HasUnmetConsumerDemand;
             public bool HasEnergyGainRate;
             public float MinEnergyGainRate;
         }
@@ -60,7 +62,10 @@ namespace Logistics_Grid.Domains.Power
 
                 if (classification.IsPowerUser)
                 {
-                    powerCache.AddPowerUser(building);
+                    if (BuildNodeMarker(building, out PowerNodeMarker nodeMarker))
+                    {
+                        powerCache.AddPowerUser(building, nodeMarker);
+                    }
                 }
             }
 
@@ -68,6 +73,97 @@ namespace Logistics_Grid.Domains.Power
             powerCache.RebuildNetGroups();
             RebuildNetStates(powerCache, allThings);
             powerCache.FinalizeRebuild();
+        }
+
+        private static bool BuildNodeMarker(Building building, out PowerNodeMarker nodeMarker)
+        {
+            nodeMarker = default(PowerNodeMarker);
+
+            if (building == null)
+            {
+                return false;
+            }
+
+            CellRect occupiedRect = building.OccupiedRect();
+            if (occupiedRect.IsEmpty)
+            {
+                occupiedRect = CellRect.SingleCell(building.Position);
+            }
+
+            CompPowerBattery battery = building.GetComp<CompPowerBattery>();
+            if (battery != null)
+            {
+                float maxStored = battery.Props != null ? battery.Props.storedEnergyMax : 0f;
+                float ratio = maxStored > 0f ? Mathf.Clamp01(battery.StoredEnergy / maxStored) : 0f;
+                float quantized = QuantizeFiveStep(ratio);
+                nodeMarker = new PowerNodeMarker(
+                    building,
+                    occupiedRect,
+                    PowerNodeIdentity.Storage,
+                    PowerNodeCoreState.StorageCharge,
+                    quantized);
+                return true;
+            }
+
+            CompPowerTrader powerTrader = building.GetComp<CompPowerTrader>();
+            if (powerTrader == null)
+            {
+                nodeMarker = new PowerNodeMarker(
+                    building,
+                    occupiedRect,
+                    PowerNodeIdentity.Consumer,
+                    PowerNodeCoreState.Neutral,
+                    0f);
+                return true;
+            }
+
+            bool isProducerCapable = building.GetComp<CompPowerPlant>() != null || powerTrader.PowerOutput > 0f;
+            PowerNodeIdentity identity = isProducerCapable ? PowerNodeIdentity.ProducerCapable : PowerNodeIdentity.Consumer;
+            PowerNodeCoreState coreState = PowerNodeCoreState.Neutral;
+            float coreValue01 = 0f;
+
+            CompFlickable flickable = building.GetComp<CompFlickable>();
+            if (flickable != null && !flickable.SwitchIsOn)
+            {
+                coreState = PowerNodeCoreState.ToggledOff;
+                nodeMarker = new PowerNodeMarker(building, occupiedRect, identity, coreState, coreValue01);
+                return true;
+            }
+
+            CompProperties_Power props = powerTrader.Props;
+            bool hasConsumerLoad = props != null && (props.PowerConsumption > 0f || props.idlePowerDraw > 0f || powerTrader.PowerOutput < 0f);
+            if (hasConsumerLoad && !powerTrader.PowerOn)
+            {
+                coreState = PowerNodeCoreState.Fault;
+                nodeMarker = new PowerNodeMarker(building, occupiedRect, identity, coreState, coreValue01);
+                return true;
+            }
+
+            bool flowDirectionRelevant = hasConsumerLoad && isProducerCapable;
+            if (flowDirectionRelevant)
+            {
+                const float NearZeroFlowEpsilon = 1f;
+                float flow = powerTrader.PowerOutput;
+                if (flow > NearZeroFlowEpsilon)
+                {
+                    coreState = PowerNodeCoreState.FlowExport;
+                    coreValue01 = 1f;
+                }
+                else if (flow < -NearZeroFlowEpsilon)
+                {
+                    coreState = PowerNodeCoreState.FlowImport;
+                    coreValue01 = 1f;
+                }
+            }
+
+            nodeMarker = new PowerNodeMarker(building, occupiedRect, identity, coreState, coreValue01);
+            return true;
+        }
+
+        private static float QuantizeFiveStep(float value01)
+        {
+            float clamped = Mathf.Clamp01(value01);
+            return Mathf.Round(clamped * 4f) / 4f;
         }
 
         private static void RebuildNetStates(PowerDomainCache powerCache, List<Thing> allThings)
@@ -101,37 +197,30 @@ namespace Logistics_Grid.Domains.Power
                 }
 
                 NetStateAccumulator accumulator = accumulators[netId];
-                bool isPlantProducer = thingWithComps.GetComp<CompPowerPlant>() != null;
+                CompFlickable flickable = thingWithComps.GetComp<CompFlickable>();
+                bool isFlickedOff = flickable != null && !flickable.SwitchIsOn;
                 bool hasConsumerLoad = powerTrader.PowerOutput < 0f
                     || (powerTrader.Props != null && (powerTrader.Props.PowerConsumption > 0f || powerTrader.Props.idlePowerDraw > 0f));
-                bool shouldTreatAsConsumer = hasConsumerLoad && !isPlantProducer;
-                if (shouldTreatAsConsumer)
+                if (hasConsumerLoad && !isFlickedOff)
                 {
-                    accumulator.HasConsumer = true;
-
-                    CompFlickable flickable = thingWithComps.GetComp<CompFlickable>();
-                    bool flickedOff = flickable != null && !flickable.SwitchIsOn;
-                    if (flickedOff)
+                    accumulator.HasEnabledConsumerDemand = true;
+                    if (powerTrader.PowerOn)
                     {
-                        accumulator.HasFlickedOffConsumer = true;
+                        accumulator.HasMetConsumerDemand = true;
                     }
-                    else if (!powerTrader.PowerOn)
+                    else
                     {
-                        accumulator.HasUnpoweredConsumer = true;
+                        accumulator.HasUnmetConsumerDemand = true;
                     }
-                }
-
-                if (isPlantProducer || powerTrader.PowerOutput > 0f)
-                {
-                    accumulator.HasProducer = true;
                 }
 
                 PowerNet powerNet = powerTrader.PowerNet;
                 if (powerNet != null)
                 {
+                    accumulator.IsConnected = true;
                     if (powerNet.HasActivePowerSource)
                     {
-                        accumulator.HasProducer = true;
+                        accumulator.HasActivePowerSource = true;
                     }
 
                     float gainRate = powerNet.CurrentEnergyGainRate();
@@ -255,30 +344,37 @@ namespace Logistics_Grid.Domains.Power
 
         private static PowerNetOverlayState ResolveState(NetStateAccumulator accumulator)
         {
-            if (!accumulator.HasConsumer && !accumulator.HasProducer)
+            if (!accumulator.IsConnected)
             {
                 return PowerNetOverlayState.Unlinked;
             }
 
-            if (accumulator.HasUnpoweredConsumer)
+            bool hasNegativeBalance = accumulator.HasEnergyGainRate && accumulator.MinEnergyGainRate < 0f;
+            bool sustainedByStorage = accumulator.HasMetConsumerDemand && !accumulator.HasActivePowerSource;
+            if ((accumulator.HasMetConsumerDemand && hasNegativeBalance) || sustainedByStorage)
+            {
+                // Net is currently covering demand but not sustainable long-term (negative balance or no active supply).
+                return PowerNetOverlayState.Transient;
+            }
+
+            if (accumulator.HasMetConsumerDemand || accumulator.HasActivePowerSource)
+            {
+                return PowerNetOverlayState.Powered;
+            }
+
+            if (accumulator.HasEnabledConsumerDemand || accumulator.HasUnmetConsumerDemand)
             {
                 return PowerNetOverlayState.Unpowered;
             }
 
-            if (accumulator.HasFlickedOffConsumer)
-            {
-                return PowerNetOverlayState.FlickedOff;
-            }
-
-            if (accumulator.HasProducer
-                && accumulator.HasConsumer
+            if (accumulator.HasActivePowerSource
                 && accumulator.HasEnergyGainRate
                 && accumulator.MinEnergyGainRate <= 0f)
             {
                 return PowerNetOverlayState.Transient;
             }
 
-            return PowerNetOverlayState.Powered;
+            return accumulator.HasActivePowerSource ? PowerNetOverlayState.Powered : PowerNetOverlayState.Unlinked;
         }
     }
 }

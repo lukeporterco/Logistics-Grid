@@ -4,6 +4,46 @@ using Verse;
 
 namespace Logistics_Grid.Domains.Power
 {
+    internal enum PowerNodeIdentity : byte
+    {
+        ProducerCapable = 0,
+        Consumer = 1,
+        Storage = 2
+    }
+
+    internal enum PowerNodeCoreState : byte
+    {
+        Neutral = 0,
+        FlowExport = 1,
+        FlowImport = 2,
+        ToggledOff = 3,
+        Fault = 4,
+        StorageCharge = 5
+    }
+
+    internal struct PowerNodeMarker
+    {
+        public PowerNodeMarker(
+            Building building,
+            CellRect occupiedRect,
+            PowerNodeIdentity identity,
+            PowerNodeCoreState coreState,
+            float coreValue01)
+        {
+            Building = building;
+            OccupiedRect = occupiedRect;
+            Identity = identity;
+            CoreState = coreState;
+            CoreValue01 = coreValue01;
+        }
+
+        public Building Building;
+        public CellRect OccupiedRect;
+        public PowerNodeIdentity Identity;
+        public PowerNodeCoreState CoreState;
+        public float CoreValue01;
+    }
+
     internal sealed class PowerDomainCache : IUtilityDomainCache
     {
         public const byte NeighborNorth = 1 << 0;
@@ -15,12 +55,12 @@ namespace Logistics_Grid.Domains.Power
 
         private List<Building> powerConduits = new List<Building>();
         private List<Building> powerUsers = new List<Building>();
+        private List<PowerNodeMarker> nodeMarkers = new List<PowerNodeMarker>();
         private List<IntVec3> powerConduitCells = new List<IntVec3>();
-        private List<IntVec3> powerUserCells = new List<IntVec3>();
         private List<Building> powerConduitsBack = new List<Building>();
         private List<Building> powerUsersBack = new List<Building>();
+        private List<PowerNodeMarker> nodeMarkersBack = new List<PowerNodeMarker>();
         private List<IntVec3> powerConduitCellsBack = new List<IntVec3>();
-        private List<IntVec3> powerUserCellsBack = new List<IntVec3>();
         private bool[] conduitPresenceGrid = new bool[0];
         private byte[] conduitTypeGrid = new byte[0];
         private byte[] conduitNeighborMaskGrid = new byte[0];
@@ -28,6 +68,7 @@ namespace Logistics_Grid.Domains.Power
         private readonly List<PowerNetOverlayGroup> netGroups = new List<PowerNetOverlayGroup>();
         private PowerNetOverlayState[] netStateById = new PowerNetOverlayState[0];
         private readonly Queue<IntVec3> floodQueue = new Queue<IntVec3>(128);
+        private int cacheGeneration;
 
         public PowerDomainCache(Map map)
         {
@@ -45,9 +86,10 @@ namespace Logistics_Grid.Domains.Power
         public int PowerConduitCount { get; private set; }
         public int PowerUserCount { get; private set; }
         public int NetGroupCount => netGroups.Count;
+        public int CacheGeneration => cacheGeneration;
 
         public List<IntVec3> PowerConduitCells => powerConduitCells;
-        public List<IntVec3> PowerUserCells => powerUserCells;
+        public IReadOnlyList<PowerNodeMarker> NodeMarkers => nodeMarkers;
         public IReadOnlyList<PowerNetOverlayGroup> NetGroups => netGroups;
 
         public void PrepareForRebuild()
@@ -55,7 +97,7 @@ namespace Logistics_Grid.Domains.Power
             powerConduitsBack.Clear();
             powerConduitCellsBack.Clear();
             powerUsersBack.Clear();
-            powerUserCellsBack.Clear();
+            nodeMarkersBack.Clear();
 
             EnsureGridSize();
             ClearCurrentConduitsFromGrid();
@@ -75,12 +117,13 @@ namespace Logistics_Grid.Domains.Power
             powerUsers = powerUsersBack;
             powerUsersBack = powerUsersSwap;
 
-            List<IntVec3> powerUserCellsSwap = powerUserCells;
-            powerUserCells = powerUserCellsBack;
-            powerUserCellsBack = powerUserCellsSwap;
+            List<PowerNodeMarker> nodeMarkersSwap = nodeMarkers;
+            nodeMarkers = nodeMarkersBack;
+            nodeMarkersBack = nodeMarkersSwap;
 
             PowerConduitCount = powerConduits.Count;
             PowerUserCount = powerUsers.Count;
+            cacheGeneration++;
             Dirty = false;
         }
 
@@ -99,7 +142,7 @@ namespace Logistics_Grid.Domains.Power
             SetConduitType(cell, conduitType == PowerConduitType.None ? PowerConduitType.Standard : conduitType);
         }
 
-        public void AddPowerUser(Building building)
+        public void AddPowerUser(Building building, PowerNodeMarker nodeMarker)
         {
             if (building == null)
             {
@@ -107,10 +150,7 @@ namespace Logistics_Grid.Domains.Power
             }
 
             powerUsersBack.Add(building);
-            foreach (IntVec3 cell in building.OccupiedRect().Cells)
-            {
-                powerUserCellsBack.Add(cell);
-            }
+            nodeMarkersBack.Add(nodeMarker);
         }
 
         public void RebuildNeighborMasks()

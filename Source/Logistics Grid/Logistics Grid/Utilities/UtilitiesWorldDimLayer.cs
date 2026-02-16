@@ -9,7 +9,7 @@ namespace Logistics_Grid.Utilities
     {
         private const float DimMarginCells = 2f;
         private const float GridLineThickness = 0.035f;
-        private const float WireframeLineThickness = 0.040f;
+        private const float WireframeLineThickness = 0.075f;
         private const float GridAlpha = 0.22f;
 
         private static readonly float BackgroundAltitude = Altitudes.AltitudeFor(AltitudeLayer.MapDataOverlay);
@@ -19,6 +19,13 @@ namespace Logistics_Grid.Utilities
         private static readonly Color GreyBaseColor = new Color(0.20f, 0.20f, 0.20f, 1f);
         private static readonly Color GridColor = new Color(0.08f, 0.08f, 0.08f, 1f);
         private static readonly Color WireframeColor = new Color(0f, 0f, 0f, 0.50f);
+
+        private static int cachedMapIndex = -1;
+        private static CellRect cachedRect;
+        private static bool hasCachedRect;
+
+        private static readonly System.Collections.Generic.List<Matrix4x4> GridMatrices = new System.Collections.Generic.List<Matrix4x4>(4096);
+        private static readonly System.Collections.Generic.List<Matrix4x4> WireframeMatrices = new System.Collections.Generic.List<Matrix4x4>(4096);
 
         public string LayerId => "LogisticsGrid.Layer.WorldDim";
 
@@ -46,12 +53,38 @@ namespace Logistics_Grid.Utilities
 
             int meshCount = 0;
             DrawGreyBackground(clampedViewRect, ref meshCount);
-            DrawGrid(clampedViewRect, ref meshCount);
-            DrawWallWireframe(context.Map, clampedViewRect, ref meshCount);
+            EnsureCachedGeometry(context.Map, clampedViewRect);
+            DrawCachedGrid(ref meshCount);
+            DrawCachedWireframe(ref meshCount);
             if (meshCount > 0)
             {
                 UtilityOverlayProfiler.RecordDrawSubmission(context.Map, meshCount);
             }
+        }
+
+        private static void EnsureCachedGeometry(Map map, CellRect viewRect)
+        {
+            if (map == null)
+            {
+                return;
+            }
+
+            if (hasCachedRect
+                && cachedMapIndex == map.Index
+                && cachedRect.minX == viewRect.minX
+                && cachedRect.minZ == viewRect.minZ
+                && cachedRect.maxX == viewRect.maxX
+                && cachedRect.maxZ == viewRect.maxZ)
+            {
+                return;
+            }
+
+            cachedMapIndex = map.Index;
+            cachedRect = viewRect;
+            hasCachedRect = true;
+
+            RebuildGridMatrices(viewRect);
+            RebuildWireframeMatrices(map, viewRect);
         }
 
         private static void DrawGreyBackground(CellRect viewRect, ref int meshCount)
@@ -67,9 +100,9 @@ namespace Logistics_Grid.Utilities
             meshCount++;
         }
 
-        private static void DrawGrid(CellRect viewRect, ref int meshCount)
+        private static void RebuildGridMatrices(CellRect viewRect)
         {
-            Material material = GetGridMaterial();
+            GridMatrices.Clear();
             int minX = viewRect.minX;
             int maxXExclusive = viewRect.maxX + 1;
             int minZ = viewRect.minZ;
@@ -84,23 +117,30 @@ namespace Logistics_Grid.Utilities
             {
                 Vector3 center = new Vector3(x, GridAltitude, centerZ);
                 Matrix4x4 matrix = Matrix4x4.TRS(center, Quaternion.identity, new Vector3(GridLineThickness, 1f, verticalLength));
-                Graphics.DrawMesh(MeshPool.plane10, matrix, material, 0);
-                meshCount++;
+                GridMatrices.Add(matrix);
             }
 
             for (int z = minZ; z <= maxZExclusive; z++)
             {
                 Vector3 center = new Vector3(centerX, GridAltitude, z);
                 Matrix4x4 matrix = Matrix4x4.TRS(center, Quaternion.identity, new Vector3(horizontalLength, 1f, GridLineThickness));
-                Graphics.DrawMesh(MeshPool.plane10, matrix, material, 0);
+                GridMatrices.Add(matrix);
+            }
+        }
+
+        private static void DrawCachedGrid(ref int meshCount)
+        {
+            Material material = GetGridMaterial();
+            for (int i = 0; i < GridMatrices.Count; i++)
+            {
+                Graphics.DrawMesh(MeshPool.plane10, GridMatrices[i], material, 0);
                 meshCount++;
             }
         }
 
-        private static void DrawWallWireframe(Map map, CellRect viewRect, ref int meshCount)
+        private static void RebuildWireframeMatrices(Map map, CellRect viewRect)
         {
-            Material material = GetWireframeMaterial();
-
+            WireframeMatrices.Clear();
             for (int x = viewRect.minX; x <= viewRect.maxX; x++)
             {
                 for (int z = viewRect.minZ; z <= viewRect.maxZ; z++)
@@ -111,21 +151,29 @@ namespace Logistics_Grid.Utilities
                         continue;
                     }
 
-                    DrawBoundaryIfExposed(map, material, cell, IntVec3.North, WireframeDirection.North, ref meshCount);
-                    DrawBoundaryIfExposed(map, material, cell, IntVec3.South, WireframeDirection.South, ref meshCount);
-                    DrawBoundaryIfExposed(map, material, cell, IntVec3.East, WireframeDirection.East, ref meshCount);
-                    DrawBoundaryIfExposed(map, material, cell, IntVec3.West, WireframeDirection.West, ref meshCount);
+                    AddBoundaryIfExposed(map, cell, IntVec3.North, WireframeDirection.North);
+                    AddBoundaryIfExposed(map, cell, IntVec3.South, WireframeDirection.South);
+                    AddBoundaryIfExposed(map, cell, IntVec3.East, WireframeDirection.East);
+                    AddBoundaryIfExposed(map, cell, IntVec3.West, WireframeDirection.West);
                 }
             }
         }
 
-        private static void DrawBoundaryIfExposed(
+        private static void DrawCachedWireframe(ref int meshCount)
+        {
+            Material material = GetWireframeMaterial();
+            for (int i = 0; i < WireframeMatrices.Count; i++)
+            {
+                Graphics.DrawMesh(MeshPool.plane10, WireframeMatrices[i], material, 0);
+                meshCount++;
+            }
+        }
+
+        private static void AddBoundaryIfExposed(
             Map map,
-            Material material,
             IntVec3 cell,
             IntVec3 neighborOffset,
-            WireframeDirection edgeDirection,
-            ref int meshCount)
+            WireframeDirection edgeDirection)
         {
             IntVec3 neighborCell = cell + neighborOffset;
             if (neighborCell.InBounds(map) && IsWallLikeOrDoor(map, neighborCell))
@@ -133,11 +181,10 @@ namespace Logistics_Grid.Utilities
                 return;
             }
 
-            DrawBoundaryEdge(material, cell, edgeDirection);
-            meshCount++;
+            AddBoundaryEdge(cell, edgeDirection);
         }
 
-        private static void DrawBoundaryEdge(Material material, IntVec3 cell, WireframeDirection edgeDirection)
+        private static void AddBoundaryEdge(IntVec3 cell, WireframeDirection edgeDirection)
         {
             Vector3 center = cell.ToVector3();
             Vector3 scale = default(Vector3);
@@ -163,7 +210,7 @@ namespace Logistics_Grid.Utilities
             }
 
             Matrix4x4 matrix = Matrix4x4.TRS(center, Quaternion.identity, scale);
-            Graphics.DrawMesh(MeshPool.plane10, matrix, material, 0);
+            WireframeMatrices.Add(matrix);
         }
 
         private static bool IsWallLikeOrDoor(Map map, IntVec3 cell)

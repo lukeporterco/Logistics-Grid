@@ -161,6 +161,12 @@ namespace Logistics_Grid.Framework
                 result.IsOverlayRelevant = true;
             }
 
+            if (thingWithComps.GetComp<CompPowerBattery>() != null)
+            {
+                result.IsPowerUser = true;
+                result.IsOverlayRelevant = true;
+            }
+
             if (thingWithComps.GetComp<CompPower>() != null)
             {
                 result.IsOverlayRelevant = true;
