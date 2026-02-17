@@ -17,10 +17,13 @@ namespace Logistics_Grid.Domains.Power
             public bool HasUnmetConsumerDemand;
             public bool HasEnergyGainRate;
             public float MinEnergyGainRate;
+            public int EnabledConsumerCount;
+            public int UnmetConsumerCount;
         }
 
         public const string DomainIdValue = "power";
         private const int RebuildIntervalTicksValue = 250;
+        private const float DistressedUnmetDemandThreshold = 0.75f;
 
         public string DomainId => DomainIdValue;
         public int RebuildIntervalTicks => RebuildIntervalTicksValue;
@@ -176,6 +179,7 @@ namespace Logistics_Grid.Domains.Power
 
             Dictionary<PowerNet, int> netIdByPowerNet = BuildNetIdLookupFromConduits(powerCache, allThings, netCount);
             NetStateAccumulator[] accumulators = new NetStateAccumulator[netCount];
+            SeedAccumulatorsFromConduitNets(netIdByPowerNet, accumulators, netCount);
             for (int i = 0; i < allThings.Count; i++)
             {
                 ThingWithComps thingWithComps = allThings[i] as ThingWithComps;
@@ -204,6 +208,7 @@ namespace Logistics_Grid.Domains.Power
                 if (hasConsumerLoad && !isFlickedOff)
                 {
                     accumulator.HasEnabledConsumerDemand = true;
+                    accumulator.EnabledConsumerCount++;
                     if (powerTrader.PowerOn)
                     {
                         accumulator.HasMetConsumerDemand = true;
@@ -211,6 +216,7 @@ namespace Logistics_Grid.Domains.Power
                     else
                     {
                         accumulator.HasUnmetConsumerDemand = true;
+                        accumulator.UnmetConsumerCount++;
                     }
                 }
 
@@ -243,6 +249,42 @@ namespace Logistics_Grid.Domains.Power
                 NetStateAccumulator accumulator = accumulators[netId];
                 PowerNetOverlayState state = ResolveState(accumulator);
                 powerCache.SetNetState(netId, state);
+            }
+        }
+
+        private static void SeedAccumulatorsFromConduitNets(
+            Dictionary<PowerNet, int> netIdByPowerNet,
+            NetStateAccumulator[] accumulators,
+            int netCount)
+        {
+            foreach (KeyValuePair<PowerNet, int> pair in netIdByPowerNet)
+            {
+                PowerNet powerNet = pair.Key;
+                int netId = pair.Value;
+                if (powerNet == null || netId < 0 || netId >= netCount)
+                {
+                    continue;
+                }
+
+                NetStateAccumulator accumulator = accumulators[netId];
+                accumulator.IsConnected = true;
+                if (powerNet.HasActivePowerSource)
+                {
+                    accumulator.HasActivePowerSource = true;
+                }
+
+                float gainRate = powerNet.CurrentEnergyGainRate();
+                if (!accumulator.HasEnergyGainRate)
+                {
+                    accumulator.HasEnergyGainRate = true;
+                    accumulator.MinEnergyGainRate = gainRate;
+                }
+                else if (gainRate < accumulator.MinEnergyGainRate)
+                {
+                    accumulator.MinEnergyGainRate = gainRate;
+                }
+
+                accumulators[netId] = accumulator;
             }
         }
 
@@ -349,6 +391,20 @@ namespace Logistics_Grid.Domains.Power
                 return PowerNetOverlayState.Unlinked;
             }
 
+            if (accumulator.EnabledConsumerCount > 0)
+            {
+                float unmetRatio = accumulator.UnmetConsumerCount / (float)accumulator.EnabledConsumerCount;
+                if (unmetRatio >= 1f)
+                {
+                    return PowerNetOverlayState.Unpowered;
+                }
+
+                if (unmetRatio >= DistressedUnmetDemandThreshold)
+                {
+                    return PowerNetOverlayState.Distressed;
+                }
+            }
+
             bool hasNegativeBalance = accumulator.HasEnergyGainRate && accumulator.MinEnergyGainRate < 0f;
             bool sustainedByStorage = accumulator.HasMetConsumerDemand && !accumulator.HasActivePowerSource;
             if ((accumulator.HasMetConsumerDemand && hasNegativeBalance) || sustainedByStorage)
@@ -374,7 +430,8 @@ namespace Logistics_Grid.Domains.Power
                 return PowerNetOverlayState.Transient;
             }
 
-            return accumulator.HasActivePowerSource ? PowerNetOverlayState.Powered : PowerNetOverlayState.Unlinked;
+            // Connected nets with no active source/demand telemetry are treated as healthy idle, not unlinked.
+            return PowerNetOverlayState.Powered;
         }
     }
 }

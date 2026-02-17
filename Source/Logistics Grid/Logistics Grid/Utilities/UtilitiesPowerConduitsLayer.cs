@@ -12,6 +12,8 @@ namespace Logistics_Grid.Utilities
         private const int BucketUnpoweredGrey = 2;
         private const int BucketUnpoweredAlert = 3;
         private const int BucketUnlinked = 4;
+        private const int BucketDistressed = 5;
+        private const int BucketCount = 6;
 
         private static readonly Color PoweredInnerColor = new Color(0.20f, 0.95f, 0.20f, 0.96f);
         private static readonly Color DisconnectedGreyInnerColor = new Color(0.38f, 0.38f, 0.38f, 0.68f);
@@ -29,8 +31,8 @@ namespace Logistics_Grid.Utilities
             alpha: 1f,
             capSegments: 8);
 
-        private static readonly CapsuleStrokeRenderer OuterRenderer = new CapsuleStrokeRenderer(5, OuterCapsuleStyle);
-        private static readonly CapsuleStrokeRenderer InnerRenderer = new CapsuleStrokeRenderer(5, InnerCapsuleStyle);
+        private static readonly CapsuleStrokeRenderer OuterRenderer = new CapsuleStrokeRenderer(BucketCount, OuterCapsuleStyle);
+        private static readonly CapsuleStrokeRenderer InnerRenderer = new CapsuleStrokeRenderer(BucketCount, InnerCapsuleStyle);
 
         public string LayerId => "LogisticsGrid.Layer.PowerConduits";
 
@@ -126,6 +128,8 @@ namespace Logistics_Grid.Utilities
             {
                 case PowerNetOverlayState.Unpowered:
                     return IsZebraAlertChunk(cell, direction) ? BucketUnpoweredAlert : BucketUnpoweredGrey;
+                case PowerNetOverlayState.Distressed:
+                    return BucketDistressed;
                 case PowerNetOverlayState.Unlinked:
                     return BucketUnlinked;
                 case PowerNetOverlayState.FlickedOff:
@@ -144,6 +148,8 @@ namespace Logistics_Grid.Utilities
             {
                 case PowerNetOverlayState.Unpowered:
                     return BucketUnpoweredGrey;
+                case PowerNetOverlayState.Distressed:
+                    return BucketDistressed;
                 case PowerNetOverlayState.Unlinked:
                     return BucketUnlinked;
                 case PowerNetOverlayState.FlickedOff:
@@ -197,6 +203,13 @@ namespace Logistics_Grid.Utilities
                     return DisconnectedGreyInnerColor;
                 case BucketUnpoweredAlert:
                     return UnpoweredAlertInnerColor;
+                case BucketDistressed:
+                {
+                    float pulse = 0.5f + 0.5f * Mathf.Sin(Time.realtimeSinceStartup * 6f);
+                    Color pulsingColor = Color.Lerp(new Color(1f, 0.90f, 0.18f, 1f), new Color(0.96f, 0.16f, 0.12f, 1f), pulse);
+                    pulsingColor.a = Mathf.Lerp(0.82f, 0.96f, pulse);
+                    return pulsingColor;
+                }
                 case BucketTransient:
                 {
                     float pulse = 0.5f + 0.5f * Mathf.Sin(Time.realtimeSinceStartup * 6f);

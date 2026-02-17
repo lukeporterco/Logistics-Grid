@@ -11,6 +11,9 @@ namespace Logistics_Grid.Utilities
         private const float RingOuterRadius = 0.26f;
         private const float RingInnerRadius = 0.16f;
         private const float CoreRadius = 0.085f;
+        private const float ScaleGrowthPerSqrtArea = 0.35f;
+        private const float MinimumMarkerScale = 1f;
+        private const float MaximumMarkerScale = 1.7f;
         private const int RingStripCount = 12;
         private const int CoreStripCount = 8;
         private const float DimmedRingAlphaMultiplier = 0.65f;
@@ -151,21 +154,14 @@ namespace Logistics_Grid.Utilities
                     continue;
                 }
 
-                foreach (IntVec3 cell in occupiedRect.Cells)
-                {
-                    if (hasVisibleRect && !visibleRect.Contains(cell))
-                    {
-                        continue;
-                    }
-
-                    Vector3 center = cell.ToVector3Shifted();
-                    AddRing(center, marker);
-                    AddCore(center, marker);
-                }
+                Vector3 center = CalculateMarkerCenter(occupiedRect);
+                float markerScale = CalculateMarkerScale(occupiedRect);
+                AddRing(center, marker, markerScale);
+                AddCore(center, marker, markerScale);
             }
         }
 
-        private static void AddRing(Vector3 center, PowerNodeMarker marker)
+        private static void AddRing(Vector3 center, PowerNodeMarker marker, float markerScale)
         {
             List<Matrix4x4> bucket = ResolveRingBucket(marker);
             if (bucket == null)
@@ -176,8 +172,8 @@ namespace Logistics_Grid.Utilities
             for (int i = 0; i < RingStripSpecs.Length; i++)
             {
                 RingStripSpec spec = RingStripSpecs[i];
-                Vector3 stripCenter = new Vector3(center.x + spec.OffsetX, MarkerAltitude, center.z + spec.OffsetZ);
-                Vector3 stripScale = new Vector3(spec.ThicknessX, 1f, spec.ThicknessZ);
+                Vector3 stripCenter = new Vector3(center.x + (spec.OffsetX * markerScale), MarkerAltitude, center.z + (spec.OffsetZ * markerScale));
+                Vector3 stripScale = new Vector3(spec.ThicknessX * markerScale, 1f, spec.ThicknessZ * markerScale);
                 bucket.Add(Matrix4x4.TRS(stripCenter, Quaternion.identity, stripScale));
             }
         }
@@ -194,7 +190,7 @@ namespace Logistics_Grid.Utilities
             return dimmed ? ConsumerRingDimmedMatrices : ConsumerRingMatrices;
         }
 
-        private static void AddCore(Vector3 center, PowerNodeMarker marker)
+        private static void AddCore(Vector3 center, PowerNodeMarker marker, float markerScale)
         {
             List<Matrix4x4> bucket = ResolveCoreBucket(marker.CoreState);
             if (bucket == null)
@@ -202,10 +198,11 @@ namespace Logistics_Grid.Utilities
                 return;
             }
 
+            float scaledCoreRadius = CoreRadius * markerScale;
             float fill01 = marker.CoreState == PowerNodeCoreState.StorageCharge
                 ? Mathf.Max(MinimumStorageFill, Mathf.Clamp01(marker.CoreValue01))
                 : 1f;
-            AddCoreFill(center, fill01, bucket);
+            AddCoreFill(center, scaledCoreRadius, markerScale, fill01, bucket);
         }
 
         private static List<Matrix4x4> ResolveCoreBucket(PowerNodeCoreState coreState)
@@ -227,15 +224,21 @@ namespace Logistics_Grid.Utilities
             }
         }
 
-        private static void AddCoreFill(Vector3 center, float fill01, List<Matrix4x4> bucket)
+        private static void AddCoreFill(
+            Vector3 center,
+            float scaledCoreRadius,
+            float markerScale,
+            float fill01,
+            List<Matrix4x4> bucket)
         {
-            float fillTop = -CoreRadius + (2f * CoreRadius * Mathf.Clamp01(fill01));
+            float fillTop = -scaledCoreRadius + (2f * scaledCoreRadius * Mathf.Clamp01(fill01));
             for (int i = 0; i < CoreStripSpecs.Length; i++)
             {
                 CoreStripSpec spec = CoreStripSpecs[i];
-                float stripMin = -spec.HalfZ;
-                float stripMax = spec.HalfZ;
-                float visibleMin = Mathf.Max(stripMin, -CoreRadius);
+                float scaledHalfZ = spec.HalfZ * markerScale;
+                float stripMin = -scaledHalfZ;
+                float stripMax = scaledHalfZ;
+                float visibleMin = Mathf.Max(stripMin, -scaledCoreRadius);
                 float visibleMax = Mathf.Min(stripMax, fillTop);
                 float visibleThickness = visibleMax - visibleMin;
                 if (visibleThickness <= 0.0005f)
@@ -244,10 +247,29 @@ namespace Logistics_Grid.Utilities
                 }
 
                 float offsetZ = (visibleMin + visibleMax) * 0.5f;
-                Vector3 stripCenter = new Vector3(center.x + spec.OffsetX, CoreAltitude, center.z + offsetZ);
-                Vector3 stripScale = new Vector3(spec.ThicknessX, 1f, visibleThickness);
+                Vector3 stripCenter = new Vector3(center.x + (spec.OffsetX * markerScale), CoreAltitude, center.z + offsetZ);
+                Vector3 stripScale = new Vector3(spec.ThicknessX * markerScale, 1f, visibleThickness);
                 bucket.Add(Matrix4x4.TRS(stripCenter, Quaternion.identity, stripScale));
             }
+        }
+
+        private static float CalculateMarkerScale(CellRect occupiedRect)
+        {
+            int width = Mathf.Max(1, occupiedRect.Width);
+            int height = Mathf.Max(1, occupiedRect.Height);
+            float area = width * height;
+            float sqrtArea = Mathf.Sqrt(area);
+            float scale = 1f + ((sqrtArea - 1f) * ScaleGrowthPerSqrtArea);
+            return Mathf.Clamp(scale, MinimumMarkerScale, MaximumMarkerScale);
+        }
+
+        private static Vector3 CalculateMarkerCenter(CellRect occupiedRect)
+        {
+            int width = Mathf.Max(1, occupiedRect.Width);
+            int height = Mathf.Max(1, occupiedRect.Height);
+            float centerX = occupiedRect.minX + (width * 0.5f);
+            float centerZ = occupiedRect.minZ + (height * 0.5f);
+            return new Vector3(centerX, 0f, centerZ);
         }
 
         private static void ClearGeometryCache()

@@ -6,6 +6,7 @@ namespace Logistics_Grid.Domains.Power
         Transient = 1,
         FlickedOff = 2,
         Unpowered = 3,
-        Unlinked = 4
+        Unlinked = 4,
+        Distressed = 5
     }
 }
