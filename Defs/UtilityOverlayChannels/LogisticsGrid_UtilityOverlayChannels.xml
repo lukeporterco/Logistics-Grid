@@ -38,6 +38,9 @@
     <description>Draw occupied cells for CompPowerTrader buildings above the utilities dim.</description>
     <domainId>power</domainId>
     <layerId>LogisticsGrid.Layer.PowerUsers</layerId>
+    <powerUserRingOuterRadius>0.26</powerUserRingOuterRadius>
+    <powerUserRingInnerRadius>0.20</powerUserRingInnerRadius>
+    <powerUserCoreRadius>0.12</powerUserCoreRadius>
     <defaultEnabled>false</defaultEnabled>
     <showInSettings>true</showInSettings>
     <drawOrder>110</drawOrder>

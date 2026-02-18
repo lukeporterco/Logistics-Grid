@@ -8,9 +8,14 @@ namespace Logistics_Grid.Utilities
 {
     internal sealed class UtilitiesPowerUsersLayer : IUtilitiesOverlayLayer
     {
-        private const float RingOuterRadius = 0.26f;
-        private const float RingInnerRadius = 0.16f;
-        private const float CoreRadius = 0.085f;
+        private const float DefaultRingOuterRadius = 0.26f;
+        private const float DefaultRingInnerRadius = 0.20f;
+        private const float DefaultCoreRadius = 0.12f;
+        private const float MinimumRingOuterRadius = 0.05f;
+        private const float MinimumRingThickness = 0.015f;
+        private const float FootprintOutlineThickness = 0.075f;
+        private const float MinimumCoreRadius = 0.02f;
+        private const float MaximumCoreToInnerRadiusRatio = 0.98f;
         private const float ScaleGrowthPerSqrtArea = 0.35f;
         private const float MinimumMarkerScale = 1f;
         private const float MaximumMarkerScale = 1.7f;
@@ -21,6 +26,8 @@ namespace Logistics_Grid.Utilities
 
         private static readonly Color ProducerRingColor = new Color(0.23f, 0.62f, 1f, 0.84f);
         private static readonly Color ConsumerRingColor = new Color(1f, 0.39f, 0.19f, 0.86f);
+        private static readonly Color ProducerOutlineColor = new Color(0.07f, 0.44f, 1f, 0.98f);
+        private static readonly Color ConsumerOutlineColor = new Color(1f, 0.31f, 0.11f, 0.98f);
         private static readonly Color NeutralCoreColor = new Color(0.82f, 0.82f, 0.82f, 0.30f);
         private static readonly Color FlowExportCoreColor = new Color(0.53f, 0.79f, 1f, 0.92f);
         private static readonly Color FlowImportCoreColor = new Color(1f, 0.58f, 0.38f, 0.92f);
@@ -29,15 +36,23 @@ namespace Logistics_Grid.Utilities
         private static readonly Color StorageCoreColor = new Color(1f, 0.92f, 0.42f, 0.98f);
 
         private static readonly float MarkerAltitude = Altitudes.AltitudeFor(AltitudeLayer.MetaOverlays) + 0.0025f;
+        private static readonly float OutlineAltitude = MarkerAltitude - 0.0001f;
         private static readonly float CoreAltitude = MarkerAltitude + 0.0001f;
 
-        private static readonly RingStripSpec[] RingStripSpecs = BuildRingStripSpecs();
-        private static readonly CoreStripSpec[] CoreStripSpecs = BuildCoreStripSpecs();
+        private static RingStripSpec[] ringStripSpecs = BuildRingStripSpecs(DefaultRingOuterRadius, DefaultRingInnerRadius);
+        private static CoreStripSpec[] coreStripSpecs = BuildCoreStripSpecs(DefaultCoreRadius);
+        private static float cachedRingOuterRadius = DefaultRingOuterRadius;
+        private static float cachedRingInnerRadius = DefaultRingInnerRadius;
+        private static float cachedCoreRadius = DefaultCoreRadius;
 
         private static readonly List<Matrix4x4> ProducerRingMatrices = new List<Matrix4x4>(1024);
         private static readonly List<Matrix4x4> ConsumerRingMatrices = new List<Matrix4x4>(1024);
         private static readonly List<Matrix4x4> ProducerRingDimmedMatrices = new List<Matrix4x4>(512);
         private static readonly List<Matrix4x4> ConsumerRingDimmedMatrices = new List<Matrix4x4>(512);
+        private static readonly List<Matrix4x4> ProducerOutlineMatrices = new List<Matrix4x4>(1024);
+        private static readonly List<Matrix4x4> ConsumerOutlineMatrices = new List<Matrix4x4>(1024);
+        private static readonly List<Matrix4x4> ProducerOutlineDimmedMatrices = new List<Matrix4x4>(512);
+        private static readonly List<Matrix4x4> ConsumerOutlineDimmedMatrices = new List<Matrix4x4>(512);
 
         private static readonly List<Matrix4x4> NeutralCoreMatrices = new List<Matrix4x4>(1024);
         private static readonly List<Matrix4x4> FlowExportCoreMatrices = new List<Matrix4x4>(512);
@@ -70,7 +85,6 @@ namespace Logistics_Grid.Utilities
 
         public void Draw(UtilityOverlayContext context, UtilityOverlayChannelDef channelDef)
         {
-            _ = channelDef;
             PowerDomainCache powerCache = context.Component.GetDomainCache<PowerDomainCache>(PowerDomainProvider.DomainIdValue);
             if (powerCache == null || powerCache.PowerUserCount == 0)
             {
@@ -82,6 +96,8 @@ namespace Logistics_Grid.Utilities
             {
                 return;
             }
+
+            EnsureGeometryStyle(channelDef);
 
             if (ShouldRebuildGeometryCache(context, powerCache))
             {
@@ -96,6 +112,10 @@ namespace Logistics_Grid.Utilities
             DrawMatrices(ConsumerRingMatrices, GetConsumerRingMaterial(), context.Map);
             DrawMatrices(ProducerRingDimmedMatrices, GetProducerRingDimmedMaterial(), context.Map);
             DrawMatrices(ConsumerRingDimmedMatrices, GetConsumerRingDimmedMaterial(), context.Map);
+            DrawMatrices(ProducerOutlineMatrices, GetProducerOutlineMaterial(), context.Map);
+            DrawMatrices(ConsumerOutlineMatrices, GetConsumerOutlineMaterial(), context.Map);
+            DrawMatrices(ProducerOutlineDimmedMatrices, GetProducerOutlineDimmedMaterial(), context.Map);
+            DrawMatrices(ConsumerOutlineDimmedMatrices, GetConsumerOutlineDimmedMaterial(), context.Map);
 
             DrawMatrices(NeutralCoreMatrices, GetNeutralCoreMaterial(), context.Map);
             DrawMatrices(FlowExportCoreMatrices, GetFlowExportCoreMaterial(), context.Map);
@@ -156,9 +176,38 @@ namespace Logistics_Grid.Utilities
 
                 Vector3 center = CalculateMarkerCenter(occupiedRect);
                 float markerScale = CalculateMarkerScale(occupiedRect);
+                AddOutline(occupiedRect, marker);
                 AddRing(center, marker, markerScale);
                 AddCore(center, marker, markerScale);
             }
+        }
+
+        private static void AddOutline(CellRect occupiedRect, PowerNodeMarker marker)
+        {
+            List<Matrix4x4> bucket = ResolveOutlineBucket(marker);
+            if (bucket == null)
+            {
+                return;
+            }
+
+            int width = Mathf.Max(1, occupiedRect.Width);
+            int height = Mathf.Max(1, occupiedRect.Height);
+            float minX = occupiedRect.minX;
+            float minZ = occupiedRect.minZ;
+            float maxX = minX + width;
+            float maxZ = minZ + height;
+
+            Vector3 northCenter = new Vector3(minX + (width * 0.5f), OutlineAltitude, maxZ);
+            Vector3 southCenter = new Vector3(minX + (width * 0.5f), OutlineAltitude, minZ);
+            Vector3 eastCenter = new Vector3(maxX, OutlineAltitude, minZ + (height * 0.5f));
+            Vector3 westCenter = new Vector3(minX, OutlineAltitude, minZ + (height * 0.5f));
+
+            Vector3 horizontalScale = new Vector3(width, 1f, FootprintOutlineThickness);
+            Vector3 verticalScale = new Vector3(FootprintOutlineThickness, 1f, height);
+            bucket.Add(Matrix4x4.TRS(northCenter, Quaternion.identity, horizontalScale));
+            bucket.Add(Matrix4x4.TRS(southCenter, Quaternion.identity, horizontalScale));
+            bucket.Add(Matrix4x4.TRS(eastCenter, Quaternion.identity, verticalScale));
+            bucket.Add(Matrix4x4.TRS(westCenter, Quaternion.identity, verticalScale));
         }
 
         private static void AddRing(Vector3 center, PowerNodeMarker marker, float markerScale)
@@ -169,13 +218,25 @@ namespace Logistics_Grid.Utilities
                 return;
             }
 
-            for (int i = 0; i < RingStripSpecs.Length; i++)
+            for (int i = 0; i < ringStripSpecs.Length; i++)
             {
-                RingStripSpec spec = RingStripSpecs[i];
+                RingStripSpec spec = ringStripSpecs[i];
                 Vector3 stripCenter = new Vector3(center.x + (spec.OffsetX * markerScale), MarkerAltitude, center.z + (spec.OffsetZ * markerScale));
                 Vector3 stripScale = new Vector3(spec.ThicknessX * markerScale, 1f, spec.ThicknessZ * markerScale);
                 bucket.Add(Matrix4x4.TRS(stripCenter, Quaternion.identity, stripScale));
             }
+        }
+
+        private static List<Matrix4x4> ResolveOutlineBucket(PowerNodeMarker marker)
+        {
+            bool dimmed = marker.CoreState == PowerNodeCoreState.ToggledOff;
+            bool producerFamily = marker.Identity == PowerNodeIdentity.ProducerCapable || marker.Identity == PowerNodeIdentity.Storage;
+            if (producerFamily)
+            {
+                return dimmed ? ProducerOutlineDimmedMatrices : ProducerOutlineMatrices;
+            }
+
+            return dimmed ? ConsumerOutlineDimmedMatrices : ConsumerOutlineMatrices;
         }
 
         private static List<Matrix4x4> ResolveRingBucket(PowerNodeMarker marker)
@@ -198,7 +259,7 @@ namespace Logistics_Grid.Utilities
                 return;
             }
 
-            float scaledCoreRadius = CoreRadius * markerScale;
+            float scaledCoreRadius = cachedCoreRadius * markerScale;
             float fill01 = marker.CoreState == PowerNodeCoreState.StorageCharge
                 ? Mathf.Max(MinimumStorageFill, Mathf.Clamp01(marker.CoreValue01))
                 : 1f;
@@ -232,9 +293,9 @@ namespace Logistics_Grid.Utilities
             List<Matrix4x4> bucket)
         {
             float fillTop = -scaledCoreRadius + (2f * scaledCoreRadius * Mathf.Clamp01(fill01));
-            for (int i = 0; i < CoreStripSpecs.Length; i++)
+            for (int i = 0; i < coreStripSpecs.Length; i++)
             {
-                CoreStripSpec spec = CoreStripSpecs[i];
+                CoreStripSpec spec = coreStripSpecs[i];
                 float scaledHalfZ = spec.HalfZ * markerScale;
                 float stripMin = -scaledHalfZ;
                 float stripMax = scaledHalfZ;
@@ -278,6 +339,10 @@ namespace Logistics_Grid.Utilities
             ConsumerRingMatrices.Clear();
             ProducerRingDimmedMatrices.Clear();
             ConsumerRingDimmedMatrices.Clear();
+            ProducerOutlineMatrices.Clear();
+            ConsumerOutlineMatrices.Clear();
+            ProducerOutlineDimmedMatrices.Clear();
+            ConsumerOutlineDimmedMatrices.Clear();
             NeutralCoreMatrices.Clear();
             FlowExportCoreMatrices.Clear();
             FlowImportCoreMatrices.Clear();
@@ -300,19 +365,44 @@ namespace Logistics_Grid.Utilities
             }
         }
 
-        private static RingStripSpec[] BuildRingStripSpecs()
+        private static void EnsureGeometryStyle(UtilityOverlayChannelDef channelDef)
+        {
+            float requestedOuter = channelDef != null ? channelDef.powerUserRingOuterRadius : DefaultRingOuterRadius;
+            float requestedInner = channelDef != null ? channelDef.powerUserRingInnerRadius : DefaultRingInnerRadius;
+            float requestedCore = channelDef != null ? channelDef.powerUserCoreRadius : DefaultCoreRadius;
+
+            float ringOuterRadius = Mathf.Max(MinimumRingOuterRadius, requestedOuter);
+            float ringInnerRadius = Mathf.Clamp(requestedInner, MinimumRingOuterRadius * 0.5f, ringOuterRadius - MinimumRingThickness);
+            float coreRadius = Mathf.Clamp(requestedCore, MinimumCoreRadius, ringInnerRadius * MaximumCoreToInnerRadiusRatio);
+
+            if (Mathf.Abs(cachedRingOuterRadius - ringOuterRadius) <= 0.0001f
+                && Mathf.Abs(cachedRingInnerRadius - ringInnerRadius) <= 0.0001f
+                && Mathf.Abs(cachedCoreRadius - coreRadius) <= 0.0001f)
+            {
+                return;
+            }
+
+            cachedRingOuterRadius = ringOuterRadius;
+            cachedRingInnerRadius = ringInnerRadius;
+            cachedCoreRadius = coreRadius;
+            ringStripSpecs = BuildRingStripSpecs(ringOuterRadius, ringInnerRadius);
+            coreStripSpecs = BuildCoreStripSpecs(coreRadius);
+            cachedGeneration = -1;
+        }
+
+        private static RingStripSpec[] BuildRingStripSpecs(float ringOuterRadius, float ringInnerRadius)
         {
             List<RingStripSpec> specs = new List<RingStripSpec>(RingStripCount * 2);
-            float diameter = RingOuterRadius * 2f;
+            float diameter = ringOuterRadius * 2f;
             for (int i = 0; i < RingStripCount; i++)
             {
-                float x0 = -RingOuterRadius + (diameter * i / RingStripCount);
-                float x1 = -RingOuterRadius + (diameter * (i + 1) / RingStripCount);
+                float x0 = -ringOuterRadius + (diameter * i / RingStripCount);
+                float x1 = -ringOuterRadius + (diameter * (i + 1) / RingStripCount);
                 float midX = (x0 + x1) * 0.5f;
-                float halfOuterZ = Mathf.Sqrt(Mathf.Max(0f, (RingOuterRadius * RingOuterRadius) - (midX * midX)));
+                float halfOuterZ = Mathf.Sqrt(Mathf.Max(0f, (ringOuterRadius * ringOuterRadius) - (midX * midX)));
                 float absMidX = Mathf.Abs(midX);
-                float halfInnerZ = absMidX < RingInnerRadius
-                    ? Mathf.Sqrt(Mathf.Max(0f, (RingInnerRadius * RingInnerRadius) - (midX * midX)))
+                float halfInnerZ = absMidX < ringInnerRadius
+                    ? Mathf.Sqrt(Mathf.Max(0f, (ringInnerRadius * ringInnerRadius) - (midX * midX)))
                     : 0f;
 
                 float bandThicknessZ = halfOuterZ - halfInnerZ;
@@ -342,16 +432,16 @@ namespace Logistics_Grid.Utilities
             return specs.ToArray();
         }
 
-        private static CoreStripSpec[] BuildCoreStripSpecs()
+        private static CoreStripSpec[] BuildCoreStripSpecs(float coreRadius)
         {
             List<CoreStripSpec> specs = new List<CoreStripSpec>(CoreStripCount);
-            float diameter = CoreRadius * 2f;
+            float diameter = coreRadius * 2f;
             for (int i = 0; i < CoreStripCount; i++)
             {
-                float x0 = -CoreRadius + (diameter * i / CoreStripCount);
-                float x1 = -CoreRadius + (diameter * (i + 1) / CoreStripCount);
+                float x0 = -coreRadius + (diameter * i / CoreStripCount);
+                float x1 = -coreRadius + (diameter * (i + 1) / CoreStripCount);
                 float midX = (x0 + x1) * 0.5f;
-                float halfZ = Mathf.Sqrt(Mathf.Max(0f, (CoreRadius * CoreRadius) - (midX * midX)));
+                float halfZ = Mathf.Sqrt(Mathf.Max(0f, (coreRadius * coreRadius) - (midX * midX)));
                 if (halfZ <= 0.00025f)
                 {
                     continue;
@@ -378,6 +468,16 @@ namespace Logistics_Grid.Utilities
             return SolidColorMaterials.SimpleSolidColorMaterial(ConsumerRingColor, false);
         }
 
+        private static Material GetProducerOutlineMaterial()
+        {
+            return SolidColorMaterials.SimpleSolidColorMaterial(ProducerOutlineColor, false);
+        }
+
+        private static Material GetConsumerOutlineMaterial()
+        {
+            return SolidColorMaterials.SimpleSolidColorMaterial(ConsumerOutlineColor, false);
+        }
+
         private static Material GetProducerRingDimmedMaterial()
         {
             Color color = ProducerRingColor;
@@ -388,6 +488,20 @@ namespace Logistics_Grid.Utilities
         private static Material GetConsumerRingDimmedMaterial()
         {
             Color color = ConsumerRingColor;
+            color.a *= DimmedRingAlphaMultiplier;
+            return SolidColorMaterials.SimpleSolidColorMaterial(color, false);
+        }
+
+        private static Material GetProducerOutlineDimmedMaterial()
+        {
+            Color color = ProducerOutlineColor;
+            color.a *= DimmedRingAlphaMultiplier;
+            return SolidColorMaterials.SimpleSolidColorMaterial(color, false);
+        }
+
+        private static Material GetConsumerOutlineDimmedMaterial()
+        {
+            Color color = ConsumerOutlineColor;
             color.a *= DimmedRingAlphaMultiplier;
             return SolidColorMaterials.SimpleSolidColorMaterial(color, false);
         }
